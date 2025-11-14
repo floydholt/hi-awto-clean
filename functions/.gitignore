@@ -1,0 +1,3 @@
+node_modules/
+*.local.env
+functions/service-account.json.json

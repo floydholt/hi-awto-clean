@@ -1,0 +1,8 @@
+{
+  "projects": {
+    "default": "hi-awto",
+    "production": "hi-awto"
+  },
+  "targets": {},
+  "etags": {}
+}

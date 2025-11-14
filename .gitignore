@@ -1,0 +1,9 @@
+# env
+client/.env
+client/.env.local
+functions/node_modules/
+client/node_modules/
+client/build/
+# Environment files
+functions/.env
+client/.env

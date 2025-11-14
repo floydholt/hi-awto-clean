@@ -1,0 +1,94 @@
+.buyer-portal {
+  font-family: 'Poppins', sans-serif;
+  padding: 2rem;
+  background-color: #f9f9f9;
+  color: #003366;
+}
+
+.portal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.portal-header h2 {
+  font-size: 1.8rem;
+  color: #00A86B;
+}
+
+.portal-header button {
+  background-color: #003366;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  font-weight: 500;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.portal-header button:hover {
+  background-color: #005599;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 500px;
+}
+
+form input,
+form select {
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+form button[type="submit"] {
+  background-color: #00A86B;
+  color: white;
+  border: none;
+  padding: 0.75rem;
+  font-weight: bold;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+form button[type="submit"]:hover {
+  background-color: #00995c;
+}
+
+.greeting {
+  font-size: 0.9rem;
+  color: #555;
+  margin-top: 0.25rem;
+}
+
+.progress-bar {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.progress-step {
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  background-color: #ccc;
+  color: white;
+  font-size: 0.8rem;
+}
+
+.progress-step.active {
+  background-color: #00A86B;
+}
+
+.alert-success {
+  background-color: #e6f9f0;
+  color: #007a5e;
+  padding: 0.75rem;
+  border-radius: 4px;
+  margin-top: 1rem;
+}
