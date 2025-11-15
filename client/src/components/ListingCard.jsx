@@ -1,62 +1,78 @@
-import React, { useState, useEffect } from "react";
+// client/src/components/ListingCard.jsx
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 
 export default function ListingCard({ listing }) {
+  const photos = listing.photos || [];
   const [index, setIndex] = useState(0);
 
-  // Auto-scroll carousel
-  useEffect(() => {
-    if (!listing.photos?.length) return;
-    const timer = setInterval(() => {
-      setIndex((prev) => (prev + 1) % listing.photos.length);
-    }, 3000);
-    return () => clearInterval(timer);
-  }, [listing.photos]);
+  const next = () => setIndex((i) => (i + 1) % Math.max(photos.length, 1));
+  const prev = () =>
+    setIndex((i) => (i - 1 + Math.max(photos.length, 1)) % Math.max(photos.length, 1));
+
+  const formattedPrice = listing.price ? Number(listing.price).toLocaleString() : "—";
 
   return (
-    <Link
-      to={`/listing/${listing.id}`}
-      className="block border rounded-xl overflow-hidden shadow-md hover:shadow-xl transition bg-white"
-    >
-      {/* Image Carousel */}
-      <div className="relative h-56 bg-gray-100 overflow-hidden">
-        {listing.photos && listing.photos.length > 0 ? (
+    <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="relative">
+        {photos.length ? (
           <>
             <img
-              src={listing.photos[index]}
-              alt={listing.address}
+              src={photos[index]}
+              alt={listing.address || "Listing"}
+              className="w-full h-44 object-cover"
               loading="lazy"
-              className="w-full h-56 object-cover transition-opacity"
             />
-            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
-              {listing.photos.map((_, i) => (
-                <div
+            {/* dots */}
+            <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex gap-2">
+              {photos.map((_, i) => (
+                <button
                   key={i}
-                  className={`h-2 w-2 rounded-full ${
-                    i === index ? "bg-white" : "bg-gray-400"
-                  }`}
-                ></div>
+                  aria-label={`go to image ${i + 1}`}
+                  onClick={() => setIndex(i)}
+                  className={`w-2 h-2 rounded-full ${i === index ? "bg-white" : "bg-white/60"}`}
+                />
               ))}
             </div>
+
+            {/* simple nav */}
+            <button
+              onClick={prev}
+              className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 text-white p-1 rounded"
+              aria-label="previous"
+              title="Previous"
+            >
+              ‹
+            </button>
+            <button
+              onClick={next}
+              className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 text-white p-1 rounded"
+              aria-label="next"
+              title="Next"
+            >
+              ›
+            </button>
           </>
         ) : (
-          <div className="w-full h-56 flex items-center justify-center text-gray-400">
+          <div className="w-full h-44 bg-gray-100 flex items-center justify-center text-gray-500">
             No photo
           </div>
         )}
       </div>
 
-      {/* Details */}
-      <div className="p-4">
-        <h3 className="font-semibold text-lg">{listing.address}</h3>
-        <p className="text-gray-600">
-          {listing.city}, {listing.state}
-        </p>
-        <p className="mt-1 text-gray-800 font-medium">
-          Rent: ${listing.rent?.toLocaleString()}
-        </p>
-        <p className="text-sm text-gray-500">Lease-to-own Price: ${listing.price?.toLocaleString()}</p>
+      <div className="p-3">
+        <h3 className="font-semibold">{listing.address || "Untitled"}</h3>
+        <p className="text-sm text-gray-600">{listing.city}, {listing.state}</p>
+        <p className="mt-2"><strong>Price:</strong> ${formattedPrice}</p>
+        <div className="mt-3 flex gap-2">
+          <Link
+            to={`/listing/${listing.id}`}
+            className="px-3 py-1 bg-blue-600 text-white rounded text-sm"
+          >
+            View
+          </Link>
+        </div>
       </div>
-    </Link>
+    </div>
   );
 }

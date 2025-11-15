@@ -1,7 +1,7 @@
 // client/src/components/AdminLogin.js
 import React, { useState } from "react";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth, db } from "../firebaseConfig";
+import { auth, db } from "../firebase";  // <-- FIXED IMPORT
 import { useNavigate } from "react-router-dom";
 import { doc, getDoc } from "firebase/firestore";
 
@@ -56,6 +56,7 @@ export default function AdminLogin() {
           Log In
         </button>
       </form>
+
       {error && <p className="small" style={{ color: "red" }}>{error}</p>}
     </div>
   );

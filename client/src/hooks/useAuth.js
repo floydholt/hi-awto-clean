@@ -1,6 +1,6 @@
 // client/src/hooks/useAuth.js
 import { useState, useEffect } from "react";
-import { auth, db } from "../firebaseConfig";
+import { auth, db } from "../firebase";  // <-- FIXED IMPORT
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 
@@ -13,17 +13,20 @@ export default function useAuth() {
     const unsub = onAuthStateChanged(auth, async (u) => {
       if (u) {
         setUser(u);
-        // Load role from Firestore
+
         const ref = doc(db, "users", u.uid);
         const snap = await getDoc(ref);
+
         if (snap.exists()) setRole(snap.data().role);
-        else setRole("user"); // default role if not assigned
+        else setRole("user"); // default role
       } else {
         setUser(null);
         setRole(null);
       }
+
       setLoading(false);
     });
+
     return () => unsub();
   }, []);
 

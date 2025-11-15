@@ -1,57 +1,42 @@
 // client/src/layouts/DashboardLayout.jsx
 import React from "react";
-import { Link, NavLink } from "react-router-dom";
+import { Outlet, Link } from "react-router-dom";
+import { FiHome, FiSettings, FiList } from "react-icons/fi";
 
-export default function DashboardLayout({ children }) {
+export default function DashboardLayout() {
   return (
-    <div className="min-h-screen flex bg-gray-100 dark:bg-gray-900">
-      
-      {/* Sidebar */}
-      <aside className="w-64 bg-white dark:bg-gray-800 shadow-card p-5">
-        <h2 className="text-xl font-display font-bold mb-6">Hi-Awto Admin</h2>
+    <div className="min-h-screen flex bg-gray-100">
+      {/* sidebar */}
+      <aside className="w-64 bg-white shadow-lg p-4">
+        <h2 className="text-xl font-bold mb-4">Admin Dashboard</h2>
 
-        <nav className="flex flex-col gap-2">
-          <NavLink
+        <nav className="space-y-2">
+          <Link
             to="/admin"
-            className={({ isActive }) =>
-              `p-2 rounded-lg ${isActive ? "bg-brand text-white" : "hover:bg-gray-200 dark:hover:bg-gray-700"}`
-            }
+            className="flex items-center gap-2 p-2 rounded hover:bg-gray-200"
           >
-            Dashboard Home
-          </NavLink>
+            <FiHome /> Home
+          </Link>
 
-          <NavLink
+          <Link
             to="/admin/listings"
-            className={({ isActive }) =>
-              `p-2 rounded-lg ${isActive ? "bg-brand text-white" : "hover:bg-gray-200 dark:hover:bg-gray-700"}`
-            }
+            className="flex items-center gap-2 p-2 rounded hover:bg-gray-200"
           >
-            Listings Manager
-          </NavLink>
+            <FiList /> Listings
+          </Link>
 
-          <NavLink
-            to="/admin/messages"
-            className={({ isActive }) =>
-              `p-2 rounded-lg ${isActive ? "bg-brand text-white" : "hover:bg-gray-200 dark:hover:bg-gray-700"}`
-            }
+          <Link
+            to="/admin/settings"
+            className="flex items-center gap-2 p-2 rounded hover:bg-gray-200"
           >
-            Messages
-          </NavLink>
-
-          <NavLink
-            to="/admin/reviews"
-            className={({ isActive }) =>
-              `p-2 rounded-lg ${isActive ? "bg-brand text-white" : "hover:bg-gray-200 dark:hover:bg-gray-700"}`
-            }
-          >
-            Reviews
-          </NavLink>
+            <FiSettings /> Settings
+          </Link>
         </nav>
       </aside>
 
-      {/* Content */}
-      <main className="flex-1 p-8">
-        {children}
+      {/* main content */}
+      <main className="flex-1 p-6">
+        <Outlet />
       </main>
     </div>
   );

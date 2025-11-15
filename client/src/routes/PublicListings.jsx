@@ -1,97 +1,129 @@
-import React, { useEffect, useState } from "react";
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
+// client/src/routes/PublicListings.jsx
+import React, { useEffect, useState, useCallback } from "react";
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  startAfter,
+  limit,
+  getDocs,
+} from "firebase/firestore";
 import { db } from "../firebase";
 import ListingCard from "../components/ListingCard";
+import ListingFilters from "../components/ListingFilters";
 
-export default function PublicListings() {
+const PAGE_SIZE = 9;
+
+export default function PublicListings({ previewLimit = null }) {
+  const [filters, setFilters] = useState({});
   const [listings, setListings] = useState([]);
-  const [filtered, setFiltered] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({ city: "", minPrice: "", maxPrice: "" });
+  const [lastDoc, setLastDoc] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
 
-  useEffect(() => {
-    const fetchListings = async () => {
-      setLoading(true);
-      const q = query(collection(db, "listings"), orderBy("createdAt", "desc"));
-      const snapshot = await getDocs(q);
-      const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      setListings(data);
-      setFiltered(data);
-      setLoading(false);
-    };
-    fetchListings();
-  }, []);
+  const buildQuery = (filtersArg, startAfterDoc = null) => {
+    // base collection
+    let q = collection(db, "listings");
 
-  const handleFilter = () => {
-    let results = listings;
+    // If city filter exists, do a simple where
+    const constraints = [];
 
-    if (filters.city) {
-      results = results.filter((l) =>
-        l.city.toLowerCase().includes(filters.city.toLowerCase())
-      );
+    if (filtersArg.city) {
+      constraints.push(where("city", "==", filtersArg.city));
     }
 
-    if (filters.minPrice) {
-      results = results.filter((l) => Number(l.price) >= Number(filters.minPrice));
+    // price range: Firestore can't do range + inequality on different fields easily.
+    if (filtersArg.minPrice != null) {
+      constraints.push(where("price", ">=", filtersArg.minPrice));
+    }
+    if (filtersArg.maxPrice != null) {
+      constraints.push(where("price", "<=", filtersArg.maxPrice));
     }
 
-    if (filters.maxPrice) {
-      results = results.filter((l) => Number(l.price) <= Number(filters.maxPrice));
+    // ordering — try to keep indexed fields first (price, createdAt)
+    constraints.push(orderBy("createdAt", "desc"));
+
+    if (startAfterDoc) {
+      constraints.push(startAfter(startAfterDoc));
     }
 
-    setFiltered(results);
+    constraints.push(limit(PAGE_SIZE));
+
+    return query(q, ...constraints);
   };
 
+  const loadFirst = useCallback(async () => {
+    setLoading(true);
+    try {
+      const q = buildQuery(filters);
+      const snap = await getDocs(q);
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setListings(docs);
+      setLastDoc(snap.docs[snap.docs.length - 1] || null);
+      setHasMore(snap.docs.length === PAGE_SIZE);
+    } catch (err) {
+      console.error("loadFirst error", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [filters]);
+
   useEffect(() => {
-    handleFilter();
-  }, [filters, listings]);
+    // reset paging when filters change
+    setListings([]);
+    setLastDoc(null);
+    setHasMore(true);
+    loadFirst();
+  }, [filters, loadFirst]);
+
+  const loadMore = async () => {
+    if (!hasMore || !lastDoc) return;
+    setLoading(true);
+    try {
+      const q = buildQuery(filters, lastDoc);
+      const snap = await getDocs(q);
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setListings((prev) => [...prev, ...docs]);
+      setLastDoc(snap.docs[snap.docs.length - 1] || null);
+      setHasMore(snap.docs.length === PAGE_SIZE);
+    } catch (err) {
+      console.error("loadMore error", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div className="p-6">
-      <h2 className="text-2xl font-semibold mb-4">Available Lease-to-Own Homes</h2>
+    <div>
+      <ListingFilters onApply={(f) => setFilters(f)} />
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-6">
-        <input
-          type="text"
-          placeholder="Search by city..."
-          className="border p-2 rounded-lg"
-          value={filters.city}
-          onChange={(e) => setFilters({ ...filters, city: e.target.value })}
-        />
-        <input
-          type="number"
-          placeholder="Min Price"
-          className="border p-2 rounded-lg w-32"
-          value={filters.minPrice}
-          onChange={(e) => setFilters({ ...filters, minPrice: e.target.value })}
-        />
-        <input
-          type="number"
-          placeholder="Max Price"
-          className="border p-2 rounded-lg w-32"
-          value={filters.maxPrice}
-          onChange={(e) => setFilters({ ...filters, maxPrice: e.target.value })}
-        />
-        <button
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg"
-          onClick={handleFilter}
-        >
-          Filter
-        </button>
-      </div>
-
-      {/* Listings Grid */}
-      {loading ? (
-        <p>Loading listings...</p>
-      ) : filtered.length > 0 ? (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filtered.map((listing) => (
-            <ListingCard key={listing.id} listing={listing} />
-          ))}
-        </div>
+      {loading && listings.length === 0 ? (
+        <p>Loading listings…</p>
+      ) : listings.length === 0 ? (
+        <p>No listings found.</p>
       ) : (
-        <p>No listings match your criteria.</p>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {listings.map((l) => (
+              <ListingCard key={l.id} listing={l} />
+            ))}
+          </div>
+
+          <div className="mt-6 flex justify-center">
+            {hasMore ? (
+              <button
+                onClick={loadMore}
+                disabled={loading}
+                className="px-4 py-2 bg-blue-600 text-white rounded"
+              >
+                {loading ? "Loading…" : "Load more"}
+              </button>
+            ) : (
+              <span className="text-gray-600">No more results</span>
+            )}
+          </div>
+        </>
       )}
     </div>
   );

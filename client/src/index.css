@@ -1,73 +1,10 @@
+cat > src/index.css << 'EOF'
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Smooth UI */
-html {
-  scroll-behavior: smooth;
-}
-
+/* optional */
 body {
   @apply bg-gray-50 text-gray-900;
-  font-family: Inter, system-ui, sans-serif;
 }
-
-/* Dark mode global rules */
-.dark body {
-  @apply bg-gray-900 text-gray-100;
-}
-
-/* ===============================
-   Shadow Cards
-=============================== */
-.card {
-  @apply bg-white dark:bg-surface-dark shadow-card rounded-xl p-4;
-}
-
-/* ===============================
-   Buttons
-=============================== */
-.btn {
-  @apply px-4 py-2 font-medium rounded-lg transition-all duration-200;
-}
-
-.btn-brand {
-  @apply btn bg-brand text-white hover:bg-brand-dark;
-}
-
-.btn-light {
-  @apply btn bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600;
-}
-
-.btn-danger {
-  @apply btn bg-danger text-white hover:bg-danger-dark;
-}
-
-/* ===============================
-   Form Inputs
-=============================== */
-.input {
-  @apply w-full px-3 py-2 border rounded-lg shadow-sm bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-brand;
-}
-
-/* ===============================
-   Modals
-=============================== */
-.modal-overlay {
-  @apply fixed inset-0 bg-overlay flex items-center justify-center p-4;
-}
-
-.modal-box {
-  @apply bg-white dark:bg-gray-800 rounded-2xl shadow-modal p-6 w-full max-w-lg;
-}
-
-/* ===============================
-   Listing Cards
-=============================== */
-.listing-card {
-  @apply card overflow-hidden hover:shadow-lg transition-all cursor-pointer;
-}
-
-.listing-card img {
-  @apply w-full h-48 object-cover;
-}
+EOF
