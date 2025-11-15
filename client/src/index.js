@@ -1,10 +1,12 @@
-// client/src/index.js
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter } from "react-router-dom";
 import App from "./App";
-import "./index.css";
-import "./firebaseConfig";
+import { BrowserRouter } from "react-router-dom";
+import "./index.css"; // Tailwind
+
+// Use whatever your original auth init is
+// If useAuth is default, no provider is needed
+// If you DO have an AuthProvider, tell me and I'll adjust
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(

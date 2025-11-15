@@ -1,45 +1,49 @@
-/**
- * functions/index.js
- */
-
+// functions/index.js
 const functions = require("firebase-functions");
-const nodemailer = require("nodemailer");
+const { Storage } = require("@google-cloud/storage");
 const admin = require("firebase-admin");
+
 admin.initializeApp();
+const storage = new Storage();
 
-// Optional test function
-exports.helloWorld = functions.https.onRequest((req, res) => {
-  res.send("Hello from Firebase!");
-});
+// Trigger on Firestore document delete
+exports.deleteListingFiles = functions
+  .runWith({ minInstances: 0 })
+  .region("us-central1")
+  .firestore.document("listings/{listingId}")
+  .onDelete(async (snap, context) => {
+    const data = snap.data();
+    if (!data) return null;
 
-// Example email notification function
-exports.notifyNewLead = functions.https.onRequest(async (req, res) => {
-  try {
-    const { name, email, message } = req.body;
+    const photos = data.photos || [];
+    const bucketName = admin.storage().bucket().name; // default bucket
 
-    // Load secrets from environment or Secret Manager
-    const EMAIL_USER = process.env.EMAIL_USER;
-    const EMAIL_PASS = process.env.EMAIL_PASS;
-    const EMAIL_TO = process.env.EMAIL_TO;
+    for (const url of photos) {
+      try {
+        // handle gs:// and https download URLs
+        if (url.startsWith("gs://")) {
+          // convert to path after bucket
+          const path = url.replace(`gs://${bucketName}/`, "");
+          await storage.bucket(bucketName).file(path).delete({ ignoreNotFound: true });
+          continue;
+        }
 
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: EMAIL_USER,
-        pass: EMAIL_PASS,
-      },
-    });
+        // For Firebase storage download URL, the path is between '/o/' and '?'
+        const idx = url.indexOf("/o/");
+        if (idx !== -1) {
+          const part = url.substring(idx + 3);
+          const path = decodeURIComponent(part.split("?")[0]);
+          await storage.bucket(bucketName).file(path).delete({ ignoreNotFound: true });
+        } else {
+          // fallback: attempt to delete by last segment if possible
+          const parsed = new URL(url);
+          const possibleName = decodeURIComponent(parsed.pathname.split("/").pop());
+          await storage.bucket(bucketName).file(possibleName).delete({ ignoreNotFound: true });
+        }
+      } catch (err) {
+        console.warn("Failed to delete storage file for url:", url, err.message || err);
+      }
+    }
 
-    await transporter.sendMail({
-      from: EMAIL_USER,
-      to: EMAIL_TO,
-      subject: `New Lead from ${name}`,
-      text: `Email: ${email}\nMessage: ${message}`,
-    });
-
-    res.status(200).send("Email sent successfully!");
-  } catch (error) {
-    console.error("Error sending email:", error);
-    res.status(500).send("Error sending email");
-  }
-});
+    return null;
+  });

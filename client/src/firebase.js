@@ -1,3 +1,4 @@
+// client/src/firebase.js
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
@@ -9,7 +10,7 @@ const firebaseConfig = {
   projectId: "hi-awto",
   storageBucket: "hi-awto.appspot.com",
   messagingSenderId: "847688831723",
-  appId: "1:847688831723:web:xxxxxxxxxxxxxx"
+  appId: process.env.REACT_APP_FIREBASE_APPID || "1:847688831723:web:xxxxxxxx",
 };
 
 const app = initializeApp(firebaseConfig);

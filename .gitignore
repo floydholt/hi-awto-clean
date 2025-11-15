@@ -7,3 +7,11 @@ client/build/
 # Environment files
 functions/.env
 client/.env
+functions/service-account.json.json
+functions/.env
+# secrets & service accounts
+functions/service-account.json
+functions/*.json
+.env
+client/.env
+secret-scan.sh
