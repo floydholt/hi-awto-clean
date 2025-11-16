@@ -1,0 +1,33 @@
+/* client/src/styles/admin.css */
+
+/* Admin container basics */
+.admin-root {
+  --card-bg: #ffffff;
+  --muted: #6b7280;
+}
+
+.admin-sidebar {
+  min-height: 220px;
+}
+
+.admin-link {
+  display: block;
+  padding: 8px 10px;
+  border-radius: 6px;
+  color: #0f172a;
+  text-decoration: none;
+}
+.admin-link:hover {
+  background: rgba(30, 64, 175, 0.06);
+}
+
+/* small helpers for listing manager */
+.input {
+  padding: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+.admin-content {
+  min-height: 180px;
+}
