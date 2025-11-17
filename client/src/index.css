@@ -1,10 +1,9 @@
-cat > src/index.css << 'EOF'
+/* client/src/index.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* optional */
-body {
-  @apply bg-gray-50 text-gray-900;
-}
-EOF
+html, body, #root { height: 100%; }
+body { @apply bg-gray-50 text-gray-900 antialiased; }
+
+/* Use utility classes in markup (e.g. className="sr-only") instead of @apply sr-only here. */
