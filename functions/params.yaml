@@ -1,0 +1,6 @@
+# functions/params.yaml
+params:
+  - param: AI_API_KEY
+    type: string
+    description: "Google Generative AI API key"
+    immutable: false

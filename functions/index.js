@@ -1,49 +1,71 @@
-// functions/index.js
-const functions = require("firebase-functions");
-const { Storage } = require("@google-cloud/storage");
-const admin = require("firebase-admin");
+import { initializeApp } from "firebase-admin/app";
+import { getStorage } from "firebase-admin/storage";
+import { getFirestore } from "firebase-admin/firestore";
 
-admin.initializeApp();
-const storage = new Storage();
+import { onDocumentDeleted, onDocumentWritten } from "firebase-functions/v2/firestore";
+import { onCall } from "firebase-functions/v2/https";
+import { defineSecret } from "firebase-functions/params";
 
-// Trigger on Firestore document delete
-exports.deleteListingFiles = functions
-  .runWith({ minInstances: 0 })
-  .region("us-central1")
-  .firestore.document("listings/{listingId}")
-  .onDelete(async (snap, context) => {
-    const data = snap.data();
-    if (!data) return null;
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-    const photos = data.photos || [];
-    const bucketName = admin.storage().bucket().name; // default bucket
+// --- Initialize Firebase Admin ---
+initializeApp();
 
-    for (const url of photos) {
-      try {
-        // handle gs:// and https download URLs
-        if (url.startsWith("gs://")) {
-          // convert to path after bucket
-          const path = url.replace(`gs://${bucketName}/`, "");
-          await storage.bucket(bucketName).file(path).delete({ ignoreNotFound: true });
-          continue;
-        }
+const db = getFirestore();
+const storage = getStorage();
 
-        // For Firebase storage download URL, the path is between '/o/' and '?'
-        const idx = url.indexOf("/o/");
-        if (idx !== -1) {
-          const part = url.substring(idx + 3);
-          const path = decodeURIComponent(part.split("?")[0]);
-          await storage.bucket(bucketName).file(path).delete({ ignoreNotFound: true });
-        } else {
-          // fallback: attempt to delete by last segment if possible
-          const parsed = new URL(url);
-          const possibleName = decodeURIComponent(parsed.pathname.split("/").pop());
-          await storage.bucket(bucketName).file(possibleName).delete({ ignoreNotFound: true });
-        }
-      } catch (err) {
-        console.warn("Failed to delete storage file for url:", url, err.message || err);
-      }
+// --- Secret for Gemini ---
+const AI_API_KEY = defineSecret("AI_API_KEY");
+
+// --- Auto-delete files when a listing is deleted ---
+export const cleanUpListingImages = onDocumentDeleted(
+  {
+    document: "listings/{listingId}",
+    secrets: [AI_API_KEY]
+  },
+  async (event) => {
+    const listingId = event.params.listingId;
+
+    const bucket = storage.bucket();
+    const folder = `listings/${listingId}/`;
+
+    const [files] = await bucket.getFiles({ prefix: folder });
+
+    const deletions = files.map((file) => file.delete());
+    await Promise.all(deletions);
+
+    console.log(`Deleted storage folder ${folder}`);
+
+    return { deleted: files.length };
+  }
+);
+
+// --- Auto-generate property tags using Gemini ---
+export const generateListingTags = onCall(
+  {
+    secrets: [AI_API_KEY]
+  },
+  async (request) => {
+    const data = request.data;
+
+    const ai = new GoogleGenerativeAI(AI_API_KEY.value());
+    const model = ai.getGenerativeModel({ model: "gemini-pro" });
+
+    const text = `
+      Extract key real-estate features from this listing description.
+      Return only a JSON array of short tags.
+
+      Description:
+      ${data.description}
+    `;
+
+    const response = await model.generateContent(text);
+    const output = response.response.text();
+
+    try {
+      return JSON.parse(output);
+    } catch {
+      return { error: "Invalid Gemini response", raw: output };
     }
-
-    return null;
-  });
+  }
+);

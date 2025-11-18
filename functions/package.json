@@ -1,15 +1,20 @@
 {
   "name": "functions",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "serve": "firebase emulators:start --only functions",
+    "deploy": "firebase deploy --only functions"
+  },
   "engines": {
     "node": "20"
   },
-  "main": "index.js",
   "dependencies": {
-    "@google-cloud/storage": "^6.12.0",
-    "firebase-admin": "^11.11.1",
-    "firebase-functions": "^4.9.0"
+    "firebase-admin": "^12.0.0",
+    "firebase-functions": "^5.1.0",
+    "@google/generative-ai": "^0.14.0"
   },
-  "scripts": {
-    "upload-demo": "node scripts/upload-demo-images.js"
+  "devDependencies": {
+    "typescript": "^5.4.3"
   }
 }

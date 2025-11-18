@@ -1,9 +1,36 @@
-/* client/src/index.css */
+/* client/src/index.css — Tailwind + minimal overrides */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-html, body, #root { height: 100%; }
-body { @apply bg-gray-50 text-gray-900 antialiased; }
+/* small global resets */
+html, body, #root {
+  height: 100%;
+}
 
-/* Use utility classes in markup (e.g. className="sr-only") instead of @apply sr-only here. */
+body {
+  @apply bg-gray-50 text-gray-900 antialiased;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* container utility used across app */
+.container {
+  @apply max-w-6xl mx-auto px-4;
+}
+
+/* basic card */
+.card {
+  @apply bg-white rounded-lg shadow-sm p-4;
+}
+
+/* input/button consistent tiny styles for fallback */
+.input {
+  @apply w-full px-3 py-2 border rounded text-sm;
+}
+.button {
+  @apply inline-block bg-blue-600 text-white px-4 py-2 rounded shadow;
+}
+.small {
+  @apply text-sm text-gray-600;
+}

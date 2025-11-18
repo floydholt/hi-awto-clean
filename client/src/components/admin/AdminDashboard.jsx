@@ -1,81 +1,47 @@
 import React from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { Routes, Route, Link } from "react-router-dom";
+import ListingManager from "./ListingManager";
+import AdminReviewModeration from "./AdminReviewModeration";
+import AdminSellerAnalytics from "./AdminSellerAnalytics";
+import AdminLeadCenter from "./AdminLeadCenter";
+import AdminLogs from "./AdminLogs";
+
+
+
 
 export default function AdminDashboard() {
   return (
-    <div className="flex min-h-screen bg-gray-100">
-
-      {/* SIDEBAR */}
-      <aside className="w-64 bg-white shadow-md border-r hidden md:flex flex-col">
-        <div className="p-6 border-b">
-          <h1 className="text-xl font-bold text-gray-800">Admin Portal</h1>
-        </div>
-
-        <nav className="flex-1 p-4 space-y-2">
-          <NavLink
-            to="/admin"
-            end
-            className={({ isActive }) =>
-              `block px-3 py-2 rounded text-sm font-medium ${
-                isActive
-                  ? "bg-blue-600 text-white"
-                  : "text-gray-700 hover:bg-gray-200"
-              }`
-            }
-          >
-            Dashboard Home
-          </NavLink>
-
-          <NavLink
-            to="/admin/listings"
-            className={({ isActive }) =>
-              `block px-3 py-2 rounded text-sm font-medium ${
-                isActive
-                  ? "bg-blue-600 text-white"
-                  : "text-gray-700 hover:bg-gray-200"
-              }`
-            }
-          >
-            Manage Listings
-          </NavLink>
-
-          <NavLink
-            to="/admin/reviews"
-            className={({ isActive }) =>
-              `block px-3 py-2 rounded text-sm font-medium ${
-                isActive
-                  ? "bg-blue-600 text-white"
-                  : "text-gray-700 hover:bg-gray-200"
-              }`
-            }
-          >
-            Review Moderation
-          </NavLink>
-
-          <NavLink
-            to="/admin/seller-analytics"
-            className={({ isActive }) =>
-              `block px-3 py-2 rounded text-sm font-medium ${
-                isActive
-                  ? "bg-blue-600 text-white"
-                  : "text-gray-700 hover:bg-gray-200"
-              }`
-            }
-          >
-            Seller Analytics
-          </NavLink>
+    <div className="grid grid-cols-1 lg:grid-cols-6 gap-6">
+      <aside className="lg:col-span-1 card">
+        <h3 className="text-lg font-semibold mb-4">Admin</h3>
+        <nav className="space-y-2">
+          <Link to="/admin/listings" className="block text-blue-600">
+            Listings
+          </Link>
+          <Link to="/admin/leads" className="block text-blue-600">
+            Leads
+          </Link>
+          <Link to="/admin/reviews" className="block text-blue-600">
+            Reviews
+          </Link>
+          <Link to="/admin/analytics" className="block text-blue-600">
+            Analytics
+          </Link>
+          <Link to="/admin/logs" className="block text-blue-600">
+            Logs
+          </Link>
         </nav>
       </aside>
 
-      {/* MOBILE TOP NAV */}
-      <header className="md:hidden w-full bg-white border-b shadow-sm p-4 flex justify-between items-center">
-        <h1 className="font-bold text-gray-800">Admin</h1>
-        <span className="text-sm text-gray-500">Menu hidden on mobile</span>
-      </header>
-
-      {/* MAIN CONTENT */}
-      <main className="flex-1 p-6">
-        <Outlet />
+      <main className="lg:col-span-5 space-y-6">
+        <Routes>
+          <Route index element={<div>Welcome to Admin Dashboard</div>} />
+          <Route path="listings" element={<ListingManager />} />
+          <Route path="reviews" element={<AdminReviewModeration />} />
+          <Route path="analytics" element={<AdminSellerAnalytics />} />
+          <Route path="leads" element={<AdminLeadCenter />} />
+          <Route path="/admin/logs" element={<AdminLogs />} />
+        </Routes>
       </main>
     </div>
   );

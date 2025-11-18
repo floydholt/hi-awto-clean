@@ -1,0 +1,3 @@
+2:import { initializeApp, getApps, getApp } from 'firebase/app';
+17:const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+6:admin.initializeApp();
