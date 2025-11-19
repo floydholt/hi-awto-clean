@@ -1,109 +1,57 @@
-// src/api/messages.js
+// client/src/api/messages.js
 import {
-  addDoc,
-  updateDoc,
-  getDoc,
-  getDocs,
-  doc,
   collection,
+  addDoc,
+  serverTimestamp,
   query,
   orderBy,
-  where,
-  serverTimestamp,
+  onSnapshot,
 } from "firebase/firestore";
-import { db, auth } from "../firebase";
+import { db } from "../firebase";
 
-// -------------------------------------------------
-// USER: Create a message thread
-// -------------------------------------------------
-export async function createThread() {
-  const user = auth.currentUser;
-  if (!user) throw new Error("Not logged in");
+/**
+ * sendMessage
+ * - threadId: string
+ * - { text, senderId, senderName, replyTo } where replyTo is optional object:
+ *    { id, text, senderId, senderName }
+ */
+export async function sendMessage(threadId, { text, senderId, senderName, replyTo }) {
+  if (!threadId || !text?.trim()) throw new Error("Missing threadId or text");
 
-  const ref = await addDoc(collection(db, "messages"), {
-    userId: user.uid,
-    name: user.displayName || "User",
-    lastMessage: "",
+  const payload = {
+    text: text.trim(),
+    senderId,
+    senderName: senderName || null,
     createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
+  };
 
-  return ref.id;
+  if (replyTo && replyTo.id) {
+    // Option A: denormalized reply object stored with message
+    payload.replyTo = {
+      id: replyTo.id,
+      text: replyTo.text || "",
+      senderId: replyTo.senderId || null,
+      senderName: replyTo.senderName || null,
+    };
+  }
+
+  const messagesRef = collection(db, "threads", threadId, "messages");
+  return await addDoc(messagesRef, payload);
 }
 
-// -------------------------------------------------
-// USER: Send a message to admin
-// -------------------------------------------------
-export async function sendMessageUser(threadId, text) {
-  const user = auth.currentUser;
-  if (!user) throw new Error("Not logged in");
-
-  await addDoc(collection(db, `messages/${threadId}/thread`), {
-    text,
-    sender: "user",
-    senderId: user.uid,
-    createdAt: serverTimestamp(),
+/**
+ * subscribeToThreadMessages
+ * - threadId: string
+ * - cb: function(Array<messageDocs>) called with messages sorted ascending by createdAt
+ * returns unsubscribe function
+ */
+export function subscribeToThreadMessages(threadId, cb) {
+  if (!threadId) throw new Error("Missing threadId");
+  const messagesRef = collection(db, "threads", threadId, "messages");
+  const q = query(messagesRef, orderBy("createdAt", "asc"));
+  const unsub = onSnapshot(q, (snap) => {
+    const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    cb(items);
   });
-
-  await updateDoc(doc(db, "messages", threadId), {
-    lastMessage: text,
-    updatedAt: serverTimestamp(),
-  });
-}
-
-// -------------------------------------------------
-// ADMIN: Send a message back to user
-// -------------------------------------------------
-export async function sendMessage(threadId, text) {
-  await addDoc(collection(db, `messages/${threadId}/thread`), {
-    text,
-    sender: "admin",
-    senderId: "admin",
-    createdAt: serverTimestamp(),
-  });
-
-  await updateDoc(doc(db, "messages", threadId), {
-    lastMessage: text,
-    updatedAt: serverTimestamp(),
-  });
-}
-
-// -------------------------------------------------
-// ADMIN: Fetch all message inboxes
-// -------------------------------------------------
-export async function fetchInbox() {
-  const q = query(
-    collection(db, "messages"),
-    orderBy("updatedAt", "desc")
-  );
-
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-}
-
-// -------------------------------------------------
-// Fetch message thread
-// -------------------------------------------------
-export async function fetchThread(threadId) {
-  const q = query(
-    collection(db, `messages/${threadId}/thread`),
-    orderBy("createdAt", "asc")
-  );
-
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-}
-
-// -------------------------------------------------
-// AI Draft (calls Cloud Function)
-// -------------------------------------------------
-export async function requestAIDraft(text) {
-  const res = await fetch("/api/aidraft", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text }),
-  });
-
-  const json = await res.json();
-  return json.draft;
+  return unsub;
 }

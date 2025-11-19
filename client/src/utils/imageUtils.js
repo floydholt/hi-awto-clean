@@ -1,26 +1,21 @@
-// client/src/utils/imageUtils.js
-// Helpers: getCroppedImg and compressImage
-
 /**
- * getCroppedImg(imageSrc, pixelCrop) -> returns a Blob of the cropped image (PNG)
- * `pixelCrop` object shape: { x, y, width, height }
+ * getCroppedImg(imageSrc, pixelCrop)
+ * Returns a Blob of the cropped image (JPEG)
  */
 export default async function getCroppedImg(imageSrc, pixelCrop) {
-  // load image
-  const image = await new Promise((res, rej) => {
+  const image = await new Promise((resolve, reject) => {
     const img = new Image();
-    img.addEventListener("load", () => res(img));
-    img.addEventListener("error", (e) => rej(e));
-    img.setAttribute("crossOrigin", "anonymous");
+    img.onload = () => resolve(img);
+    img.onerror = (e) => reject(e);
+    img.crossOrigin = "anonymous";
     img.src = imageSrc;
   });
 
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(pixelCrop.width));
   canvas.height = Math.max(1, Math.round(pixelCrop.height));
-  const ctx = canvas.getContext("2d");
 
-  // draw the cropped area onto the canvas
+  const ctx = canvas.getContext("2d");
   ctx.drawImage(
     image,
     pixelCrop.x,
@@ -33,42 +28,48 @@ export default async function getCroppedImg(imageSrc, pixelCrop) {
     pixelCrop.height
   );
 
-  // convert to blob
   return await new Promise((resolve) => {
-    canvas.toBlob((blob) => {
-      resolve(blob);
-    }, "image/jpeg", 0.95);
+    canvas.toBlob((blob) => resolve(blob), "image/jpeg", 0.95);
   });
 }
 
 /**
- * compressImage(blob, maxSizeKB = 200, maxWidth = 1600) -> returns compressed Blob (JPEG)
+ * compressImage(blob, {maxSizeKB, maxWidth})
+ * Compress an image Blob down to a max file size (in KB)
  */
-export async function compressImage(blob, { maxSizeKB = 200, maxWidth = 1600 } = {}) {
-  const image = await new Promise((res, rej) => {
+export async function compressImage(
+  blob,
+  { maxSizeKB = 200, maxWidth = 1600 } = {}
+) {
+  const image = await new Promise((resolve, reject) => {
     const img = new Image();
-    img.onload = () => res(img);
-    img.onerror = (e) => rej(e);
-    img.setAttribute("crossOrigin", "anonymous");
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.crossOrigin = "anonymous";
     img.src = URL.createObjectURL(blob);
   });
 
-  const scale = Math.min(1, maxWidth / image.width || 1);
+  // Auto-scale to width
+  const scale = Math.min(1, maxWidth / image.width);
   const canvas = document.createElement("canvas");
   canvas.width = Math.round(image.width * scale);
   canvas.height = Math.round(image.height * scale);
+
   const ctx = canvas.getContext("2d");
   ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
 
+  // Try gradually reducing quality
   let quality = 0.9;
   let compressedBlob = await new Promise((resolve) =>
     canvas.toBlob((b) => resolve(b), "image/jpeg", quality)
   );
 
-  // loop to reduce quality if above target size
   const targetBytes = maxSizeKB * 1024;
-  while (compressedBlob.size > targetBytes && quality > 0.3) {
+
+  while (compressedBlob.size > targetBytes && quality > 0.25) {
     quality -= 0.1;
+
+    // Recompress
     // eslint-disable-next-line no-await-in-loop
     compressedBlob = await new Promise((resolve) =>
       canvas.toBlob((b) => resolve(b), "image/jpeg", quality)
@@ -76,4 +77,20 @@ export async function compressImage(blob, { maxSizeKB = 200, maxWidth = 1600 } =
   }
 
   return compressedBlob;
+}
+
+/**
+ * resizeImages(files, quality)
+ * Returns an array of compressed Blobs
+ */
+export async function resizeImages(files, quality = 0.7) {
+  const result = [];
+
+  for (const file of files) {
+    // eslint-disable-next-line no-await-in-loop
+    const blob = await compressImage(file, { maxSizeKB: 200 });
+    result.push(blob);
+  }
+
+  return result;
 }

@@ -1,36 +1,163 @@
-/* client/src/index.css — Tailwind + minimal overrides */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* client/src/index.css */
 
-/* small global resets */
+/* Basic body resets and background (keeps consistent look even without tailwind) */
 html, body, #root {
   height: 100%;
-}
-
-body {
-  @apply bg-gray-50 text-gray-900 antialiased;
+  margin: 0;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background: #f8fafc; /* tailwind slate-50 */
 }
 
-/* container utility used across app */
-.container {
-  @apply max-w-6xl mx-auto px-4;
+/* Messages scroll viewport — make sure it is touch-friendly on mobile */
+.messages {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
 }
 
-/* basic card */
-.card {
-  @apply bg-white rounded-lg shadow-sm p-4;
+/* Typing dots */
+.dot-typing {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 4px;
+  background: #9ca3af; /* gray-400 */
+  border-radius: 999px;
+  animation: typingDot 1.2s infinite;
+}
+.dot-typing:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.dot-typing:nth-child(3) {
+  animation-delay: 0.4s;
+}
+@keyframes typingDot {
+  0% { transform: translateY(0); opacity: 0.5; }
+  30% { transform: translateY(-6px); opacity: 1; }
+  60% { transform: translateY(0); opacity: 0.7; }
+  100% { transform: translateY(0); opacity: 0.5; }
 }
 
-/* input/button consistent tiny styles for fallback */
-.input {
-  @apply w-full px-3 py-2 border rounded text-sm;
+/* Bubble shadows for better visual separation on mobile */
+.msg {
+  word-wrap: break-word;
+  line-height: 1.25;
 }
-.button {
-  @apply inline-block bg-blue-600 text-white px-4 py-2 rounded shadow;
+.msg > div {
+  box-shadow: 0 1px 0 rgba(0,0,0,0.02);
 }
-.small {
-  @apply text-sm text-gray-600;
+
+/* small-screen header fix */
+@media (max-width: 767px) {
+  .thread-list {
+    height: 100vh;
+  }
+
+  /* keep composer above OS keyboard */
+  form.composer {
+    padding-bottom: env(safe-area-inset-bottom, 12px);
+  }
+}
+
+/* utility: center helper when no thread selected */
+.center-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: calc(100vh - 64px);
+}
+/* Add to client/src/index.css (append) */
+
+/* Floating reaction bubble animation */
+.reaction-bubble {
+  position: absolute;
+  transform-origin: center;
+  font-size: 22px;
+  will-change: transform, opacity;
+  animation: floatUp 900ms cubic-bezier(.2,-0.1,.2,1) forwards;
+  pointer-events: none;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.12);
+}
+
+/* subtle scale/pop before floating */
+@keyframes floatUp {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  15% {
+    transform: translateY(-6px) scale(1.25);
+  }
+  40% {
+    transform: translateY(-32px) scale(1.35);
+  }
+  100% {
+    transform: translateY(-90px) scale(1.6);
+    opacity: 0;
+  }
+}
+
+/* Optional helper: tiny fade-in used by quick reaction bar (already handled by tailwind if available) */
+@keyframes fadeInScale {
+  from { opacity: 0; transform: scale(.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+/* ---------- reaction particles (SVG hearts) ---------- */
+
+/* container root (already pointer-events-none on component) */
+.reaction-particles-root {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 60;
+}
+
+/* each heart particle */
+.rp-heart {
+  position: absolute;
+  transform-origin: center;
+  will-change: transform, opacity;
+  opacity: 0;
+  animation: rp-pop-float 1100ms cubic-bezier(.15,.9,.25,1) forwards;
+}
+
+/* individual rp-heart svg inherits --rp-color for fill */
+.rp-heart svg {
+  display: block;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.12));
+}
+
+/* animation: quick pop then float up with slight rotate and fade */
+@keyframes rp-pop-float {
+  0% {
+    transform: translateY(0) scale(0.5) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+    transform: translateY(-6px) scale(1.05) rotate(-6deg);
+  }
+  40% {
+    transform: translateY(-30px) scale(1.02) rotate(6deg);
+    opacity: 0.95;
+  }
+  80% {
+    transform: translateY(-70px) scale(0.9) rotate(14deg);
+    opacity: 0.45;
+  }
+  100% {
+    transform: translateY(-110px) scale(0.8) rotate(24deg);
+    opacity: 0;
+  }
+}
+
+/* small responsive tweak */
+@media (prefers-reduced-motion: reduce) {
+  .reaction-bubble,
+  .rp-heart {
+    animation-duration: 200ms !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
 }

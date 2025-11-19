@@ -1,0 +1,59 @@
+*** Begin Patch
+*** Add File: client/src/api/messages.js
++import {
++  collection,
++  addDoc,
++  serverTimestamp,
++  query,
++  orderBy,
++  onSnapshot,
++} from "firebase/firestore";
++import { db } from "../firebase";
++
++/**
++ * sendMessage
++ * - threadId: string
++ * - { text, senderId, senderName, replyTo } where replyTo is optional object:
++ *    { id, text, senderId, senderName }
++ */
++export async function sendMessage(threadId, { text, senderId, senderName, replyTo }) {
++  if (!threadId || !text?.trim()) throw new Error("Missing threadId or text");
++
++  const payload = {
++    text: text.trim(),
++    senderId,
++    senderName: senderName || null,
++    createdAt: serverTimestamp(),
++  };
++
++  if (replyTo && replyTo.id) {
++    payload.replyTo = {
++      id: replyTo.id,
++      text: replyTo.text || "",
++      senderId: replyTo.senderId || null,
++      senderName: replyTo.senderName || null,
++    };
++  }
++
++  const messagesRef = collection(db, "threads", threadId, "messages");
++  return await addDoc(messagesRef, payload);
++}
++
++/**
++ * subscribeToThreadMessages
++ * - threadId: string
++ * - cb: function(Array<messageDocs>) called with messages sorted ascending by createdAt
++ * returns unsubscribe function
++ */
++export function subscribeToThreadMessages(threadId, cb) {
++  if (!threadId) throw new Error("Missing threadId");
++  const messagesRef = collection(db, "threads", threadId, "messages");
++  const q = query(messagesRef, orderBy("createdAt", "asc"));
++  const unsub = onSnapshot(q, (snap) => {
++    const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
++    cb(items);
++  });
++  return unsub;
++}
++
+*** End Patch
