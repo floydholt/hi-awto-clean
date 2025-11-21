@@ -1,0 +1,89 @@
+diff --git a/client/src/App.jsx b/client/src/App.jsx
+index abcdef1..ghijk23 100644
+--- a/client/src/App.jsx
++++ b/client/src/App.jsx
+@@ -1,12 +1,13 @@
+-import React from "react";
+-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+-
+-import Home from "./pages/Home";
+-import Login from "./pages/Login";
+-import Register from "./pages/Register";
++import React from "react";
++import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
++
++// ensure pages folder paths match actual files
++import Home from "./pages/Home.jsx";
++import Login from "./pages/Login.jsx";
++import Register from "./pages/Register.jsx";
+ 
+-import MyMessages from "./pages/MyMessages";
+-import MessagingCenterAdmin from "./pages/MessagingCenterAdmin";
+-import ViewThread from "./pages/ViewThread";
++import MyMessages from "./pages/MyMessages.jsx";
++import MessagingCenterAdmin from "./pages/MessagingCenterAdmin.jsx";
++import ViewThread from "./pages/ViewThread.jsx";
+ 
+-import AdminLeadCenter from "./components/admin/AdminLeadCenter";
+-import ListingManager from "./components/admin/ListingManager";
+-import AdminListingManager from "./components/admin/AdminListingManager";
++import AdminLeadCenter from "./components/admin/AdminLeadCenter.jsx";
++import ListingManager from "./components/admin/ListingManager.jsx";
++import AdminListingManager from "./components/admin/AdminListingManager.jsx";
+ 
+ import { AuthProvider } from "./hooks/useAuth";
+ 
+@@ -30,8 +31,8 @@ export default function App() {
+           {/* Public Pages */}
+           <Route path="/" element={<Home />} />
+           <Route path="/login" element={<Login />} />
+           <Route path="/register" element={<Register />} />
+-
+-          {/* User Messaging */}
++          
++          {/* User Messaging */}
+           <Route path="/messages" element={<MyMessages />} />
+           <Route path="/messages/thread/:threadId" element={<ViewThread />} />
+ 
+@@ -40,8 +41,7 @@ export default function App() {
+           {/* Admin Messaging */}
+           <Route path="/admin/messages" element={<MessagingCenterAdmin />} />
+           <Route path="/admin/messages/thread/:threadId" element={<ViewThread adminMode />} />
+-
+-          {/* Admin Panels */}
++          
+           <Route path="/admin/leads" element={<AdminLeadCenter />} />
+           <Route path="/admin/listings" element={<ListingManager />} />
+           <Route path="/admin/listings-manager" element={<AdminListingManager />} />
+@@ -49,6 +49,8 @@ export default function App() {
+           <Route path="*" element={<div style={{ padding: 40 }}>Page Not Found</div>} />
+         </Routes>
+       </Router>
++
++      {/* End of Router */}
+     </AuthProvider>
+   );
+ }
+diff --git a/client/package.json b/client/package.json
+index lmnop34..qrstuv5 100644
+--- a/client/package.json
++++ b/client/package.json
+@@ -20,6 +20,7 @@
+     "react-scripts": "5.0.1",
+     "web-vitals": "^2.1.0"
+   },
++  "dependencies": {
+     "date-fns": "^2.30.0",
+     // any other existing deps
+   },
+diff --git a/client/src/components/MessageThreadView.jsx b/client/src/components/MessageThreadView.jsx
+index uvwxyz1..xyzabc2 100644
+--- a/client/src/components/MessageThreadView.jsx
++++ a/client/src/components/MessageThreadView.jsx
+@@ -1,5 +1,6 @@
+-import { format } from "date-fns";
++import { format } from "date-fns";
++
+ import React, { useEffect, useState, useRef } from "react";
+ import { listenToThread, listenToMessages, markThreadSeen } from "../api/messages";
+ import { db } from "../firebase";  // if you import db here, remove if unused
