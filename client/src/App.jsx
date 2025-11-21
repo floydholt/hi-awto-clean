@@ -1,49 +1,108 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
-import Home from "./pages/Home";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
+// Components
+import NavBar from "./components/NavBar.jsx";
+import ProtectedRoute from "./components/ProtectedRoute.jsx";
 
-import MyMessages from "./pages/MyMessages";
-import MessagingCenterAdmin from "./pages/MessagingCenterAdmin";
-import ViewThread from "./pages/ViewThread";
+// Pages
+import Home from "./pages/Home.jsx";
+import Login from "./pages/Login.jsx";
+import Register from "./pages/Register.jsx";
+import Profile from "./pages/Profile.jsx";
 
-import AdminLeadCenter from "./components/admin/AdminLeadCenter";
-import ListingManager from "./components/admin/ListingManager";
-import AdminListingManager from "./components/admin/AdminListingManager";
-import "./styles/chat.css";
+import CreateListing from "./pages/CreateListing.jsx";
+import MyListings from "./pages/MyListings.jsx";
+import ListingDetails from "./pages/ListingDetails.jsx";
 
+import MyMessages from "./pages/MyMessages.jsx";
+import ViewThread from "./pages/ViewThread.jsx";
+import MessagingCenterAdmin from "./pages/MessagingCenterAdmin.jsx";
 
-import { AuthProvider } from "./hooks/useAuth";
+import AdminDashboard from "./pages/AdminDashboard.jsx";
 
-export default function App() {
+function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <Routes>
-          {/* Public Pages */}
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+    <Router>
+      <NavBar />
 
-          {/* User Messaging */}
-          <Route path="/messages" element={<MyMessages />} />
-          <Route path="/messages/thread/:threadId" element={<ViewThread />} />
+      <Routes>
+        {/* Public */}
+        <Route path="/" element={<Home />} />
+        <Route path="/listing/:id" element={<ListingDetails />} />
 
-          {/* Admin Messaging */}
-          <Route path="/admin/messages" element={<MessagingCenterAdmin />} />
-          <Route path="/admin/messages/thread/:threadId" element={<ViewThread adminMode />} />
+        {/* Auth */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
 
-          {/* Admin Panels */}
-          <Route path="/admin/leads" element={<AdminLeadCenter />} />
-          <Route path="/admin/listings" element={<ListingManager />} />
-          <Route path="/admin/listings-manager" element={<AdminListingManager />} />
+        {/* User Protected */}
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          }
+        />
 
-          {/* Fallback */}
-          <Route path="*" element={<div style={{ padding: 40 }}>Page Not Found</div>} />
-        </Routes>
-      </Router>
-    </AuthProvider>
+        <Route
+          path="/create-listing"
+          element={
+            <ProtectedRoute>
+              <CreateListing />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/my-listings"
+          element={
+            <ProtectedRoute>
+              <MyListings />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Messaging */}
+        <Route
+          path="/messages"
+          element={
+            <ProtectedRoute>
+              <MyMessages />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/thread/:threadId"
+          element={
+            <ProtectedRoute>
+              <ViewThread />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Admin Only */}
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute adminOnly>
+              <AdminDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/messages"
+          element={
+            <ProtectedRoute adminOnly>
+              <MessagingCenterAdmin />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </Router>
   );
 }
+
+export default App;
