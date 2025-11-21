@@ -1,0 +1,62 @@
+/* Left swipe reveal DELETE button */
+.swipe-delete-action {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 120px;
+  background: #dc2626; /* red */
+  color: white;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 16px;
+  font-weight: 600;
+  z-index: 0;
+}
+
+/* Existing styles */
+.swipe-action-left {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 90px;
+  background: #2563eb;
+  color: white;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  padding-left: 12px;
+  z-index: 0;
+}
+
+.thread-tile {
+  position: relative;
+  background: white;
+  border-radius: 8px;
+  z-index: 2;
+  transition: transform .2s ease;
+}
+/* Bulk delete bottom bar */
+.bulk-delete-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: white;
+  border-top: 1px solid #ddd;
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 50;
+  box-shadow: 0 -4px 16px rgba(0,0,0,0.08);
+  animation: slide-up .25s ease;
+}
+
+@keyframes slide-up {
+  from { transform: translateY(80px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}

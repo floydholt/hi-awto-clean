@@ -1,131 +1,100 @@
 // client/src/components/MessageComposer.jsx
 import React, { useState, useEffect, useRef } from "react";
-import { sendMessage } from "../api/messages";
-import debounce from "lodash.debounce";
+import { sendMessage, setTyping } from "../api/messages";
 
-/**
- * Props:
- * - threadId
- * - currentUser: { uid, displayName }
- * - replyingTo (object | null) - { id, text, senderId, senderName }
- * - onCancelReply - fn to clear reply state in parent
- * - onSent - optional callback when message sent
- * - setTypingStatus(threadId, uid, isTyping) optional function for typing presence
- */
+const TYPING_DEBOUNCE_MS = 400;
+const STOP_TYPING_DELAY_MS = 2500;
+
 export default function MessageComposer({
   threadId,
-  currentUser,
-  replyingTo = null,
-  onCancelReply = () => {},
-  onSent = () => {},
-  setTypingStatus = null,
+  currentUser, // { uid, displayName, role }
 }) {
   const [text, setText] = useState("");
-  const inputRef = useRef(null);
+  const [isTyping, setIsTypingLocal] = useState(false);
+  const typingTimeoutRef = useRef(null);
+  const lastSentRef = useRef(0);
 
-  // debounce typing updates so we don't spam presence writes
-  const sendTyping = useRef(
-    debounce((isTyping) => {
-      if (setTypingStatus && threadId && currentUser?.uid) {
-        setTypingStatus(threadId, currentUser.uid, isTyping);
-      }
-    }, 400)
-  ).current;
-
-  useEffect(() => {
-    return () => {
-      // clear typing state if unmount
-      sendTyping.cancel();
-      sendTyping(false);
-    };
-  }, [sendTyping]);
-
-  const handleChange = (e) => {
-    setText(e.target.value);
-    // indicate typing
-    sendTyping(true);
-    // schedule stop typing after pause
-    debouncedStopTyping();
-  };
-
-  const debouncedStopTyping = debounce(() => {
-    sendTyping(false);
-  }, 1200);
-
-  const handleSubmit = async (e) => {
-    e?.preventDefault();
-    const trimmed = text.trim();
-    if (!trimmed) return;
+  // Helper to send typing state to Firestore
+  const pushTypingState = async (typing) => {
+    if (!threadId || !currentUser?.uid) return;
     try {
-      await sendMessage(threadId, {
-        text: trimmed,
-        senderId: currentUser.uid,
-        senderName: currentUser.displayName || null,
-        replyTo: replyingTo || undefined,
+      await setTyping({
+        threadId,
+        uid: currentUser.uid,
+        isTyping: typing,
       });
-      setText("");
-      // clear reply state
-      onCancelReply();
-      onSent();
-      // clear typing
-      sendTyping(false);
-      debouncedStopTyping.cancel();
     } catch (err) {
-      console.error("Failed to send message:", err);
-      alert("Send failed — check console.");
+      console.error("setTyping error", err);
     }
   };
 
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      handleSubmit(e);
+  // When the input changes, mark as typing (debounced)
+  useEffect(() => {
+    if (!threadId || !currentUser?.uid) return;
+
+    if (text && !isTyping) {
+      setIsTypingLocal(true);
+      pushTypingState(true);
+    }
+
+    // debounce: if user keeps typing, delay the "stop typing"
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    if (text) {
+      typingTimeoutRef.current = setTimeout(() => {
+        setIsTypingLocal(false);
+        pushTypingState(false);
+      }, STOP_TYPING_DELAY_MS);
+    } else {
+      // no text -> immediately stop typing
+      setIsTypingLocal(false);
+      pushTypingState(false);
+    }
+
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text, threadId, currentUser?.uid]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const trimmed = text.trim();
+    if (!trimmed || !threadId || !currentUser?.uid) return;
+
+    try {
+      await sendMessage({
+        threadId,
+        text: trimmed,
+        senderId: currentUser.uid,
+        senderName: currentUser.displayName || "",
+      });
+
+      setText("");
+      setIsTypingLocal(false);
+      pushTypingState(false);
+    } catch (err) {
+      console.error("sendMessage failed", err);
+      alert("Message failed to send. Please try again.");
     }
   };
 
   return (
-    <div className="message-composer p-3 border-t bg-white">
-      {replyingTo && (
-        <div className="reply-preview mb-2 p-2 bg-gray-50 rounded border">
-          <div className="text-xs text-gray-500">Replying to {replyingTo.senderName || "Unknown"}</div>
-          <div className="text-sm text-gray-700 line-clamp-2">{replyingTo.text}</div>
-          <button
-            onClick={() => {
-              onCancelReply();
-            }}
-            className="text-xs text-red-500 mt-1"
-            aria-label="Cancel reply"
-          >
-            Cancel
-          </button>
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="flex gap-2 items-end">
-        <textarea
-          ref={inputRef}
-          className="flex-1 p-2 border rounded resize-none"
-          placeholder="Write a message..."
-          value={text}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          rows={1}
-        />
-
-        <button
-          type="button"
-          className="px-4 py-2 bg-gray-200 rounded"
-          onClick={() => {
-            // quick attach last message text as a reply if there's none selected
-            if (!replyingTo && text.trim() === "") {
-              inputRef.current.focus();
-              return;
-            }
-            handleSubmit();
-          }}
-        >
-          Send
-        </button>
-      </form>
-    </div>
+    <form onSubmit={handleSubmit} className="composer compose-wrapper">
+      <input
+        type="text"
+        placeholder="Type a message…"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        aria-label="Message"
+      />
+      <button type="submit" disabled={!text.trim()}>
+        Send
+      </button>
+    </form>
   );
 }

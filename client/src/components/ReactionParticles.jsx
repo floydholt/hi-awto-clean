@@ -1,96 +1,65 @@
 // client/src/components/ReactionParticles.jsx
-import React from "react";
+import React, { useEffect } from "react";
 
 /**
- * ReactionParticles
- * Renders absolute-positioned SVGs / shapes depending on particle.type:
- *   - "heart"
- *   - "star"
- *   - "confetti"
- *   - "circle"
- *   - "spark"
- *   - "tear"
+ * Small particle burst animation for reactions.
+ * Props:
+ * - emoji (string)
+ * - onDone() optional
  */
-export default function ReactionParticles({ particles = [] }) {
+export default function ReactionParticles({ emoji = "❤️", onDone }) {
+  useEffect(() => {
+    const timeout = setTimeout(() => onDone && onDone(), 800);
+    return () => clearTimeout(timeout);
+  }, [onDone]);
+
+  // produces 6 particles with small offsets
+  const pieces = new Array(6).fill(0).map((_, i) => {
+    const left = 50 + (i - 2.5) * 10;
+    const delay = i * 40;
+    return { i, left, delay };
+  });
+
   return (
-    <div aria-hidden className="reaction-particles-root pointer-events-none">
-      {particles.map((p) => (
+    <div className="reaction-particles" aria-hidden>
+      {pieces.map((p) => (
         <div
-          key={p.id}
-          className={`rp-particle rp-${p.type}`}
+          key={p.i}
+          className="particle"
           style={{
-            left: `${p.left}px`,
-            top: `${p.top}px`,
-            transform: `translate(-50%,-50%) scale(${p.scale ?? 1})`,
-            animationDelay: `${p.delay ?? 0}ms`,
-            ["--rp-color"]: p.color || "#ff4d6d",
+            left: `${p.left}%`,
+            animationDelay: `${p.delay}ms`,
           }}
         >
-          {renderParticleSVG(p.type)}
+          {emoji}
         </div>
       ))}
+
+      <style jsx="true">{`
+        .reaction-particles {
+          position: absolute;
+          pointer-events: none;
+          bottom: 60px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 240px;
+          height: 240px;
+        }
+        .particle {
+          position: absolute;
+          bottom: 0;
+          transform: translateX(-50%);
+          font-size: 20px;
+          opacity: 0;
+          animation: particle-pop 700ms ease-out forwards;
+        }
+        @keyframes particle-pop {
+          0% { transform: translateY(0) scale(.6); opacity: 0;}
+          30% { transform: translateY(-30px) scale(1.05); opacity: 1;}
+          80% { transform: translateY(-140px) scale(.6); opacity: .7; filter: blur(.2px); }
+          100% { transform: translateY(-220px) scale(.4); opacity: 0; }
+        }
+      `}</style>
     </div>
   );
-}
-
-/** Returns an SVG appropriate for the particle type */
-function renderParticleSVG(type) {
-  switch (type) {
-    case "heart":
-      return (
-        <svg viewBox="0 0 24 24" width="18" height="18">
-          <path
-            d="M12 21s-7.5-4.9-9.1-7.1C.9 10.8 3.3 6 8 6c2.2 0 3.4 1.1 4 2.1.6-1 1.8-2.1 4-2.1 4.7 0 7.1 4.8 5.1 7.9C19.5 16.1 12 21 12 21z"
-            fill="var(--rp-color)"
-          />
-        </svg>
-      );
-
-    case "star":
-      return (
-        <svg width="17" height="17" viewBox="0 0 24 24">
-          <path
-            d="M12 2l3.1 6.3L22 9.3l-5 4.8L18.2 22 12 18.4 5.8 22 7 14.1 2 9.3l6.9-1z"
-            fill="var(--rp-color)"
-          />
-        </svg>
-      );
-
-    case "confetti":
-      return (
-        <svg width="10" height="10" viewBox="0 0 10 10">
-          <circle cx="5" cy="5" r="5" fill="var(--rp-color)" />
-        </svg>
-      );
-
-    case "circle":
-      return (
-        <svg width="12" height="12" viewBox="0 0 12 12">
-          <circle cx="6" cy="6" r="6" fill="var(--rp-color)" />
-        </svg>
-      );
-
-    case "spark":
-      return (
-        <svg width="16" height="16" viewBox="0 0 24 24">
-          <path
-            d="M12 2l2 6h6l-5 3.5L17 20l-5-3-5 3 2-8.5L4 8h6z"
-            fill="var(--rp-color)"
-          />
-        </svg>
-      );
-
-    case "tear":
-      return (
-        <svg width="14" height="14" viewBox="0 0 24 24">
-          <path
-            d="M12 2c3 4 6 7 6 11a6 6 0 11-12 0c0-4 3-7 6-11z"
-            fill="var(--rp-color)"
-          />
-        </svg>
-      );
-
-    default:
-      return null;
-  }
 }

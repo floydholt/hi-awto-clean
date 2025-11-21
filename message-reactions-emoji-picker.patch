@@ -1,0 +1,30 @@
+diff --git a/client/src/components/EmojiPicker.jsx b/client/src/components/EmojiPicker.jsx
+new file mode 100644
+index 0000000..d3c4abc
+--- /dev/null
++++ b/client/src/components/EmojiPicker.jsx
+@@ -0,0 +1,33 @@
++import React from "react";
++
++const EMOJIS = ["👍","❤️","😂","🎉","😮","😢","🔥","⭐"];
++
++export default function EmojiPicker({ onSelect, className = "" }) {
++  return (
++    <div
++      className={`emoji-picker bg-white shadow rounded p-2 flex gap-2 flex-wrap ${className}`}
++      role="menu"
++    >
++      {EMOJIS.map((e) => (
++        <button
++          key={e}
++          type="button"
++          aria-label={`react ${e}`}
++          className="emoji-btn p-2 text-xl rounded hover:bg-gray-100"
++          onClick={() => onSelect(e)}
++        >
++          {e}
++        </button>
++      ))}
++    </div>
++  );
++}

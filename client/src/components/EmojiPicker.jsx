@@ -2,29 +2,54 @@
 import React from "react";
 
 /**
- * Tiny emoji picker. Stateless.
+ * Minimal emoji picker used for reactions.
  * Props:
- *  - onSelect(emoji)
- *  - recent = [] (optional)
+ * - onSelect(emoji)
+ * - onClose()
  */
-const DEFAULT_EMOJI = ["👍", "❤️", "😂", "😍", "👏", "🔥", "🎉", "😮", "😢", "🤝"];
+const EMOJIS = ["❤️", "👍", "😂", "😮", "😢", "🔥", "⭐", "🎉", "😅"];
 
-export default function EmojiPicker({ onSelect, recent = [] }) {
-  const list = [...new Set([...(recent || []), ...DEFAULT_EMOJI])];
-
+export default function EmojiPicker({ onSelect, onClose }) {
   return (
-    <div className="bg-white shadow-md rounded p-2 grid grid-cols-5 gap-2">
-      {list.map((e) => (
-        <button
-          key={e}
-          onClick={() => onSelect(e)}
-          className="h-9 w-9 flex items-center justify-center rounded hover:bg-gray-100"
-          aria-label={`React with ${e}`}
-          type="button"
-        >
-          <span style={{ fontSize: 18 }}>{e}</span>
-        </button>
-      ))}
+    <div className="emoji-picker" role="dialog" aria-modal="true">
+      <div className="emoji-grid">
+        {EMOJIS.map((e) => (
+          <button
+            key={e}
+            className="emoji-btn"
+            onClick={() => {
+              onSelect(e);
+              onClose();
+            }}
+            aria-label={`React ${e}`}
+          >
+            {e}
+          </button>
+        ))}
+      </div>
+
+      <style jsx="true">{`
+        .emoji-picker {
+          background: white;
+          border-radius: 8px;
+          padding: 8px;
+          box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+        }
+        .emoji-grid {
+          display: grid;
+          grid-template-columns: repeat(6, 1fr);
+          gap: 6px;
+        }
+        .emoji-btn {
+          font-size: 20px;
+          padding: 8px;
+          border-radius: 6px;
+          border: none;
+          background: transparent;
+          cursor: pointer;
+        }
+        .emoji-btn:hover { transform: translateY(-2px); }
+      `}</style>
     </div>
   );
 }

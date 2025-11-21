@@ -1,79 +1,58 @@
+// client/src/pages/MyMessages.jsx
 import React, { useEffect, useState } from "react";
+import { db } from "../firebase";
 import {
-  createThread,
-  fetchThread,
-  sendMessageUser,
-} from "../api/messages";
-import { auth } from "../firebase";
-import { onAuthStateChanged } from "firebase/auth";
+  collection,
+  query,
+  where,
+  orderBy,
+  onSnapshot,
+} from "firebase/firestore";
+import useAuth from "../hooks/useAuth";
+import { Link } from "react-router-dom";
 
 export default function MyMessages() {
-  const [threadId, setThreadId] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [text, setText] = useState("");
+  const { user } = useAuth();
+  const [threads, setThreads] = useState([]);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      if (!user) return;
+    if (!user) return;
 
-      // Create or fetch existing personal thread
-      const t = await createThread();
-      setThreadId(t);
+    const q = query(
+      collection(db, "threads"),
+      where("participants", "array-contains", user.uid),
+      orderBy("updatedAt", "desc")
+    );
 
-      const msgs = await fetchThread(t);
-      setMessages(msgs);
+    const unsub = onSnapshot(q, (snap) => {
+      setThreads(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
 
     return () => unsub();
-  }, []);
-
-  async function handleSend() {
-    if (!text.trim()) return;
-
-    await sendMessageUser(threadId, text);
-
-    const msgs = await fetchThread(threadId);
-    setMessages(msgs);
-
-    setText("");
-  }
+  }, [user]);
 
   return (
-    <div className="p-6">
-      <h1 className="text-xl font-bold mb-4">My Messages</h1>
+    <div className="p-4">
+      <h2 className="text-xl font-semibold mb-3">My Messages</h2>
 
-      <div className="border rounded p-4 bg-white shadow">
-        <div className="h-80 overflow-y-auto border p-3 mb-3 bg-gray-50">
-          {messages.map((m) => (
-            <div
-              key={m.id}
-              className={`p-2 rounded mb-2 ${
-                m.sender === "user"
-                  ? "bg-blue-200 ml-auto text-right"
-                  : "bg-gray-300 mr-auto"
-              }`}
-              style={{ maxWidth: "70%" }}
+      {threads.length === 0 ? (
+        <p className="text-gray-500 text-center mt-10">No conversations yet.</p>
+      ) : (
+        <div className="thread-list flex flex-col gap-2">
+          {threads.map((t) => (
+            <Link
+              key={t.id}
+              to={`/messages/${t.id}`}
+              className="p-3 border rounded hover:bg-gray-50"
             >
-              {m.text}
-            </div>
+              <div className="font-medium">{t.title || "Conversation"}</div>
+              <div className="text-sm opacity-70">
+                {t.lastMessagePreview || "Tap to open"}
+              </div>
+            </Link>
           ))}
         </div>
-
-        <div className="flex gap-2">
-          <input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="Type a message..."
-            className="flex-1 border p-2 rounded"
-          />
-          <button
-            onClick={handleSend}
-            className="bg-blue-600 text-white px-4 py-2 rounded"
-          >
-            Send
-          </button>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

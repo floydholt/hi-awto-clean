@@ -1,120 +1,109 @@
 // client/src/components/MessageThreadView.jsx
-import React, { useEffect, useRef, useState } from "react";
-import { subscribeToThreadMessages } from "../api/messages";
-import MessageComposer from "./MessageComposer";
-import "../styles/messages.css";
+import React, { useEffect, useState, useRef } from "react";
+import { listenToThread, listenToMessages, markThreadSeen } from "../api/messages";
+import { format } from "date-fns";
 
-/**
- * Props:
- * - threadId
- * - currentUser { uid, displayName }
- * - optional setTypingStatus(threadId, uid, isTyping)
- */
-export default function MessageThreadView({ threadId, currentUser, setTypingStatus }) {
+export default function MessageThreadView({
+  threadId,
+  currentUser, // { uid, displayName, role }
+}) {
+  const [thread, setThread] = useState(null);
   const [messages, setMessages] = useState([]);
-  const [replyingTo, setReplyingTo] = useState(null);
-  const containerRef = useRef(null);
-  const touchStartX = useRef(null);
-  const touchCandidateMsg = useRef(null);
+  const bottomRef = useRef(null);
 
+  // Subscribe to thread doc
   useEffect(() => {
     if (!threadId) return;
-    const unsub = subscribeToThreadMessages(threadId, (items) => {
-      setMessages(items);
-      // scroll to bottom on new message
-      setTimeout(() => {
-        containerRef.current?.scrollTo({ top: containerRef.current.scrollHeight, behavior: "smooth" });
-      }, 40);
+    const unsub = listenToThread(threadId, (data) => {
+      setThread(data);
     });
     return () => unsub();
   }, [threadId]);
 
-  // Swipe handlers for mobile: swipe right to reply
-  const handleTouchStart = (e, msg) => {
-    touchStartX.current = e.touches?.[0]?.clientX || null;
-    touchCandidateMsg.current = msg;
-  };
-
-  const handleTouchEnd = (e, msg) => {
-    if (touchStartX.current == null) return;
-    const endX = e.changedTouches?.[0]?.clientX || null;
-    if (endX == null) return;
-    const delta = endX - touchStartX.current;
-    // threshold
-    if (delta > 60) {
-      triggerReply(msg);
-    }
-    touchStartX.current = null;
-    touchCandidateMsg.current = null;
-  };
-
-  // Desktop: enable reply button / context menu
-  const triggerReply = (msg) => {
-    setReplyingTo({
-      id: msg.id,
-      text: msg.text,
-      senderId: msg.senderId,
-      senderName: msg.senderName,
+  // Subscribe to messages
+  useEffect(() => {
+    if (!threadId) return;
+    const unsub = listenToMessages(threadId, (items) => {
+      setMessages(items);
     });
-    // focus composer after small delay
-    setTimeout(() => {
-      const el = document.querySelector(".message-composer textarea");
-      if (el) el.focus();
-    }, 80);
+    return () => unsub();
+  }, [threadId]);
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    if (bottomRef.current) {
+      bottomRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
+  }, [messages]);
+
+  // Mark as seen when viewing
+  useEffect(() => {
+    if (!threadId || !currentUser?.uid) return;
+    markThreadSeen({ threadId, uid: currentUser.uid });
+  }, [threadId, currentUser?.uid]);
+
+  if (!threadId) {
+    return (
+      <div className="thread-view">
+        <div className="empty">Select a conversation to view messages.</div>
+      </div>
+    );
+  }
+
+  const typingMap = thread?.typing || {};
+  const typingUsers = Object.entries(typingMap)
+    .filter(([uid, val]) => val && uid !== currentUser?.uid)
+    .map(([uid]) => uid);
+
+  const renderTimestamp = (ts) => {
+    if (!ts?.toDate) return "";
+    return format(ts.toDate(), "MMM d, h:mm a");
   };
 
   return (
-    <div className="message-thread h-full flex flex-col">
-      <div ref={containerRef} className="message-list flex-1 overflow-auto p-3">
-        {messages.map((m) => (
-          <div
-            key={m.id}
-            className={`message-item ${m.senderId === currentUser?.uid ? "me" : "them"}`}
-            onTouchStart={(e) => handleTouchStart(e, m)}
-            onTouchEnd={(e) => handleTouchEnd(e, m)}
-            // desktop fallback: double-click or right-click to reply
-            onDoubleClick={() => triggerReply(m)}
-          >
-            {/* avatar + sender */}
-            <div className="meta">
-              <div className="sender">{m.senderName || "User"}</div>
-              <div className="time">{m.createdAt?.toDate ? new Date(m.createdAt.toDate()).toLocaleTimeString() : ""}</div>
-            </div>
+    <div className="thread-view">
+      {/* Messages */}
+      <div className="messages-box">
+        {messages.length === 0 && (
+          <div className="empty">No messages yet. Start the conversation!</div>
+        )}
 
-            {/* replyTo quoted block */}
-            {m.replyTo && (
-              <div className="reply-quote" title={`In reply to ${m.replyTo.senderName || "Unknown"}`}>
-                <div className="reply-meta text-xs text-gray-500">
-                  Reply to {m.replyTo.senderName || "Unknown"}
-                </div>
-                <div className="reply-text text-sm text-gray-700 line-clamp-2">
-                  {m.replyTo.text}
-                </div>
+        {messages.map((msg) => {
+          const isCurrentUser = msg.senderId === currentUser?.uid;
+          const rowClass = isCurrentUser ? "message-row user" : "message-row admin";
+          const bubbleClass = isCurrentUser ? "message-bubble user" : "message-bubble admin";
+
+          return (
+            <div key={msg.id} className={rowClass}>
+              <div className={bubbleClass}>
+                {msg.text}
               </div>
-            )}
+              <div className={`message-time ${isCurrentUser ? "user" : "admin"}`}>
+                {renderTimestamp(msg.createdAt)}
+              </div>
+              {/* simple meta stub for delivered/seen – can be expanded */}
+              {isCurrentUser && (
+                <div className="message-meta user">
+                  <span className="delivery-status seen">Sent</span>
+                </div>
+              )}
+            </div>
+          );
+        })}
 
-            {/* message text */}
-            <div className="text">{m.text}</div>
-
-            {/* small actions: reply button */}
-            <div className="msg-actions">
-              <button className="action-btn" onClick={() => triggerReply(m)} aria-label="Reply">
-                Reply
-              </button>
+        {/* Typing indicator (multi-agent) */}
+        {typingUsers.length > 0 && (
+          <div className="message-row admin">
+            <div className="message-bubble admin typing-bubble">
+              <div className="typing-dot" />
+              <div className="typing-dot" />
+              <div className="typing-dot" />
             </div>
           </div>
-        ))}
+        )}
 
-        {messages.length === 0 && <div className="text-center text-gray-400 mt-8">No messages yet.</div>}
+        <div ref={bottomRef} />
       </div>
-
-      <MessageComposer
-        threadId={threadId}
-        currentUser={currentUser}
-        replyingTo={replyingTo}
-        onCancelReply={() => setReplyingTo(null)}
-        setTypingStatus={setTypingStatus}
-      />
     </div>
   );
 }
