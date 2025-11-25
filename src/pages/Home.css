@@ -1,0 +1,110 @@
+/* PAGE WRAPPER */
+.home-wrapper {
+  padding: 40px 20px;
+  max-width: 1100px;
+  margin: 0 auto;
+  background: #000; /* Neon-friendly background */
+  min-height: 100vh;
+}
+
+/* HERO SECTION */
+.hero-section {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.hero-logo {
+  width: 300px;
+  max-width: 90%;
+  height: auto;
+  filter: drop-shadow(0px 0px 12px #4ec3ff);
+}
+
+.hero-title {
+  margin-top: 15px;
+  color: #4ec3ff;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-shadow: 0px 0px 6px #4ec3ff;
+}
+
+/* SECTION TITLE */
+.section-title {
+  color: white;
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+/* TEXT STATES */
+.loading-text,
+.empty-text {
+  color: #cccccc;
+  text-align: center;
+  margin: 20px 0;
+  font-size: 16px;
+}
+
+/* GRID */
+.listings-grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .listings-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* LISTING CARDS */
+.listing-card {
+  background: #111;
+  border: 1px solid #222;
+  border-radius: 10px;
+  padding: 18px;
+  text-decoration: none;
+  color: white;
+  transition: 0.2s ease-out;
+}
+
+/* GLOW EFFECT */
+.hover-glow:hover {
+  box-shadow: 0 0 18px #4ec3ff;
+  transform: translateY(-3px);
+}
+
+/* CARD TEXT */
+.listing-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #4ec3ff;
+}
+
+.listing-address {
+  font-size: 14px;
+  color: #bbbbbb;
+  margin-top: 4px;
+}
+
+.listing-price {
+  margin-top: 10px;
+  font-size: 16px;
+  font-weight: 500;
+  color: #a8ff2a;
+}
+
+/* FADE-IN ANIMATION */
+.fade-in {
+  opacity: 0;
+  animation: fadeIn 1.2s ease forwards;
+}
+
+@keyframes fadeIn {
+  to {
+    opacity: 1;
+  }
+}

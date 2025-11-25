@@ -1,71 +1,75 @@
-import { initializeApp } from "firebase-admin/app";
-import { getStorage } from "firebase-admin/storage";
-import { getFirestore } from "firebase-admin/firestore";
+/**
+ * Cloud Functions for HI AWTO
+ * - AI image tagging via Google Cloud Vision
+ */
 
-import { onDocumentDeleted, onDocumentWritten } from "firebase-functions/v2/firestore";
-import { onCall } from "firebase-functions/v2/https";
-import { defineSecret } from "firebase-functions/params";
+const functions = require("firebase-functions");
+const admin = require("firebase-admin");
+const vision = require("@google-cloud/vision");
 
-import { GoogleGenerativeAI } from "@google/generative-ai";
+// Initialize Firebase Admin (only once)
+if (!admin.apps.length) {
+  admin.initializeApp();
+}
 
-// --- Initialize Firebase Admin ---
-initializeApp();
+// Google Cloud Vision client
+// Make sure Vision API is enabled in your GCP project.
+const visionClient = new vision.ImageAnnotatorClient();
 
-const db = getFirestore();
-const storage = getStorage();
+/**
+ * Callable function:
+ * analyzeImageLabels({ imageUrl })
+ *
+ * - imageUrl: HTTPS URL to the image (e.g. Firebase Storage download URL)
+ * - Returns: { tags: string[], raw: ... }
+ *
+ * This runs on the backend, so your Vision API key/credentials
+ * never touch the client.
+ */
+exports.analyzeImageLabels = functions
+  .region("us-central1")
+  .https.onCall(async (data, context) => {
+    const imageUrl = data?.imageUrl;
 
-// --- Secret for Gemini ---
-const AI_API_KEY = defineSecret("AI_API_KEY");
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "You must be signed in to analyze images."
+      );
+    }
 
-// --- Auto-delete files when a listing is deleted ---
-export const cleanUpListingImages = onDocumentDeleted(
-  {
-    document: "listings/{listingId}",
-    secrets: [AI_API_KEY]
-  },
-  async (event) => {
-    const listingId = event.params.listingId;
-
-    const bucket = storage.bucket();
-    const folder = `listings/${listingId}/`;
-
-    const [files] = await bucket.getFiles({ prefix: folder });
-
-    const deletions = files.map((file) => file.delete());
-    await Promise.all(deletions);
-
-    console.log(`Deleted storage folder ${folder}`);
-
-    return { deleted: files.length };
-  }
-);
-
-// --- Auto-generate property tags using Gemini ---
-export const generateListingTags = onCall(
-  {
-    secrets: [AI_API_KEY]
-  },
-  async (request) => {
-    const data = request.data;
-
-    const ai = new GoogleGenerativeAI(AI_API_KEY.value());
-    const model = ai.getGenerativeModel({ model: "gemini-pro" });
-
-    const text = `
-      Extract key real-estate features from this listing description.
-      Return only a JSON array of short tags.
-
-      Description:
-      ${data.description}
-    `;
-
-    const response = await model.generateContent(text);
-    const output = response.response.text();
+    if (!imageUrl || typeof imageUrl !== "string") {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "imageUrl (string) is required."
+      );
+    }
 
     try {
-      return JSON.parse(output);
-    } catch {
-      return { error: "Invalid Gemini response", raw: output };
+      // Ask Vision for labels on this image
+      const [result] = await visionClient.labelDetection(imageUrl);
+      const labels = result.labelAnnotations || [];
+
+      // Convert labels to simple "tags"
+      const tags = labels
+        .filter((label) => label.score >= 0.7) // keep only confident labels
+        .map((label) => label.description.trim().toLowerCase())
+        .filter(Boolean);
+
+      return {
+        tags,
+        raw: {
+          labels: labels.map((l) => ({
+            description: l.description,
+            score: l.score,
+          })),
+        },
+      };
+    } catch (err) {
+      console.error("Vision analyzeImageLabels error:", err);
+      throw new functions.https.HttpsError(
+        "internal",
+        "Failed to analyze image."
+      );
     }
-  }
-);
+  });

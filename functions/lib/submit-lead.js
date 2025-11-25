@@ -16,3 +16,4 @@ export const writeLead = onCall({ region: "us-central1" }, async (request) => {
     await admin.firestore().collection("leads").add(payload);
     return { status: "ok" };
 });
+//# sourceMappingURL=submit-lead.js.map

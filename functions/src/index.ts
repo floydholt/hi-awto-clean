@@ -1,145 +1,71 @@
+import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
-import {
-  onCall,
-  HttpsError,
-} from "firebase-functions/v2/https";
-import {
-  onDocumentCreated,
-  onDocumentDeleted,
-} from "firebase-functions/v2/firestore";
-import { defineSecret } from "firebase-functions/params";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { writeLead } from "./submit-lead";
+
+import { generateAITags } from "./aiVision.js";
+import { generateAIDescription } from "./aiDescription.js";
+import { generateAIPricing } from "./aiPricing.js";
+import { runFraudCheck } from "./aiFraud.js";
 
 admin.initializeApp();
+const db = admin.firestore();
 
-const AI_API_KEY = defineSecret("AI_API_KEY");
+export const onListingWrite = functions.firestore
+  .document("listings/{listingId}")
+  .onWrite(async (change, context) => {
+    const listingId = context.params.listingId;
+    const after = change.after.exists ? change.after.data() : null;
+    if (!after) return;
 
-// -----------------------------
-// LOG WRITER
-// -----------------------------
-async function writeLog(type: string, message: string, meta: any = {}) {
-  await admin.firestore().collection("logs").add({
-    type,
-    message,
-    meta,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    const imageUrls: string[] = after.imageUrls || [];
+
+    console.log("Running AI pipeline for listing:", listingId);
+
+    // 1. Vision
+    let aiTags: string[] = [];
+    let aiCaption = "";
+
+    if (imageUrls.length > 0) {
+      const vision = await generateAITags(imageUrls);
+      aiTags = vision.tags;
+      aiCaption = vision.caption;
+    }
+
+    // 2. Description
+    const aiFullDescription = await generateAIDescription({
+      title: after.title,
+      address: after.address,
+      description: after.description,
+      price: after.price,
+      downPayment: after.downPayment,
+      tags: aiTags
+    });
+
+    // 3. Pricing
+    const aiPricing = await generateAIPricing({
+      price: after.price,
+      address: after.address,
+      description: after.description,
+      tags: aiTags
+    });
+
+    // 4. Fraud
+    const aiFraud = await runFraudCheck({
+      ...after,
+      aiTags
+    });
+
+    // Write back
+    await db.collection("listings").doc(listingId).set(
+      {
+        aiTags,
+        aiCaption,
+        aiFullDescription,
+        aiPricing,
+        aiFraud,
+        aiUpdatedAt: admin.firestore.FieldValue.serverTimestamp()
+      },
+      { merge: true }
+    );
+
+    console.log("AI pipeline complete:", listingId);
   });
-}
-
-// -----------------------------
-// FIRESTORE TRIGGER — Auto Tag New Listing
-// -----------------------------
-export const autoTagNewListing = onDocumentCreated(
-  {
-    document: "listings/{listingId}",
-    secrets: [AI_API_KEY],
-    region: "us-central1",
-  },
-  async (event) => {
-    const data = event.data?.data();
-    if (!data) return;
-
-    const genAI = new GoogleGenerativeAI(AI_API_KEY.value());
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-
-    const prompt = `
-      Extract real-estate property features from this listing description.
-
-      Description:
-      ${data.description}
-
-      Return ONLY a JSON array of tags.
-    `;
-
-    try {
-      const result = await model.generateContent(prompt);
-      const text = result.response.text();
-
-      const tags = JSON.parse(text);
-
-      await admin
-        .firestore()
-        .collection("listings")
-        .doc(event.params.listingId)
-        .update({ tags });
-
-      await writeLog("ai_tag", "AI auto-tagging completed", {
-        listingId: event.params.listingId,
-        tags,
-      });
-    } catch (err: any) {
-      await writeLog("error", "AI auto-tagging failed", {
-        error: err.toString(),
-      });
-    }
-  }
-);
-
-// -----------------------------
-// FIRESTORE TRIGGER — Delete Storage Files When Listing Deleted
-// -----------------------------
-export const cleanupListingImages = onDocumentDeleted(
-  {
-    document: "listings/{listingId}",
-    region: "us-central1",
-  },
-  async (event) => {
-    const bucket = admin.storage().bucket();
-    const listingId = event.params.listingId;
-
-    const [files] = await bucket.getFiles({
-      prefix: `listings/${listingId}/`,
-    });
-
-    for (const file of files) {
-      await file.delete();
-    }
-
-    await writeLog("delete_cleanup", "Listing images removed", {
-      listingId,
-      fileCount: files.length,
-    });
-  }
-);
-
-export * from "./submit-lead";
-
-// -----------------------------
-// Callable — Manual AI Tagging
-// -----------------------------
-export const tagListing = onCall(
-  { secrets: [AI_API_KEY], region: "us-central1" },
-  async (request) => {
-    const { description } = request.data;
-
-    if (!description) {
-      throw new HttpsError("invalid-argument", "Description is required");
-    }
-
-    try {
-      const genAI = new GoogleGenerativeAI(AI_API_KEY.value());
-      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-
-      const prompt = `
-        Extract property feature tags from this real estate listing:
-        ${description}
-        Return ONLY a JSON array of strings.
-      `;
-
-      const result = await model.generateContent(prompt);
-      const text = result.response.text();
-      const tags = JSON.parse(text);
-
-      await writeLog("ai_tag", "Manual AI tagging completed", { tags });
-
-      return { tags };
-    } catch (err: any) {
-      await writeLog("error", "Manual tagging failed", {
-        error: err.toString(),
-      });
-
-      throw new HttpsError("internal", "AI tagging failed");
-    }
-  }
-);
