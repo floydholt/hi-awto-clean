@@ -1,40 +1,41 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { AIVisionResult } from "./types.js";
 
+const MODEL_VISION = "gemini-1.5-flash";
+
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const model = genAI.getGenerativeModel({ model: MODEL_VISION });
 
-export async function generateAITags(imageUrls: string[]): Promise<AIVisionResult> {
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-  let tags: string[] = [];
-  let caption = "";
-
-  for (const url of imageUrls.slice(0, 3)) {
-    const img = await fetch(url).then(r => r.arrayBuffer());
-    const inlineData = {
-      inlineData: {
-        data: Buffer.from(img).toString("base64"),
-        mimeType: "image/jpeg"
-      }
-    };
-
+export async function generateAITags(imageUrl: string): Promise<AIVisionResult> {
+  try {
     const result = await model.generateContent([
-      "Extract 5–10 descriptive tags and a 1-sentence caption.",
-      inlineData
+      {
+        role: "user",
+        parts: [
+          { text: "Analyze this property image and extract:" },
+          { text: "- 15 descriptive tags" },
+          { text: "- a one-sentence caption" },
+          { image_url: imageUrl } as any // Gemini Vision REST style
+        ],
+      },
     ]);
 
-    const text = result.response.text();
+    const text = result.response.text().trim();
 
-    const extractedTags = text.match(/#[a-zA-Z0-9]+/g) || [];
-    tags.push(...extractedTags);
+    const tags = text
+      .match(/tags:(.*)/i)?.[1]
+      ?.split(/[,;]+/g)
+      .map((t: string) => t.trim().toLowerCase())
+      .filter(Boolean)
+      .slice(0, 15) ?? [];
 
-    if (!caption) {
-      caption = text.split("\n")[0];
-    }
+    const caption =
+      text.match(/caption:(.*)/i)?.[1]?.trim() ??
+      "A home listed on HI-AWTO.";
+
+    return { tags, caption };
+  } catch (err) {
+    console.error("Vision AI Error:", err);
+    return { tags: [], caption: "" };
   }
-
-  return {
-    tags: [...new Set(tags.map(t => t.replace("#", "").toLowerCase()))].slice(0, 15),
-    caption
-  };
 }

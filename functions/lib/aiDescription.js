@@ -1,22 +1,32 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-export async function generateAIDescription(input) {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
-    const prompt = `
-Write a friendly real-estate listing description using the following details:
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.generateAIDescription = generateAIDescription;
+const generative_ai_1 = require("@google/generative-ai");
+const genAI = new generative_ai_1.GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+async function generateAIDescription(input) {
+    var _a, _b;
+    try {
+        const prompt = `
+Write a full real estate property description using this data:
 
 Title: ${input.title}
-Address: ${input.address}
-Listed Price: $${input.price}
-Down Payment: $${input.downPayment}
+Features: ${input.tags.join(", ")}
+Price: $${input.price.toLocaleString()}
+Beds: ${input.beds}
+Baths: ${input.baths}
+Sqft: ${input.sqft}
+Zip: ${input.zip}
 
-Existing Notes: ${input.description}
-
-AI Tags: ${input.tags.join(", ")}
-
-Write 2–3 paragraphs. Keep it warm, helpful, and descriptive.
-  `;
-    const result = await model.generateContent(prompt);
-    return result.response.text();
+Tone: friendly, professional, inspiring.
+Length: 2–4 paragraphs.
+    `;
+        const result = await model.generateContent(prompt);
+        return (_b = (_a = result.response) === null || _a === void 0 ? void 0 : _a.text()) !== null && _b !== void 0 ? _b : "";
+    }
+    catch (err) {
+        console.error("AI Description failed:", err);
+        return "";
+    }
 }
 //# sourceMappingURL=aiDescription.js.map

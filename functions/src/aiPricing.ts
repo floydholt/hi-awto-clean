@@ -1,32 +1,49 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { AIPricingInput, AIPricing } from "./types.js";
 
+const MODEL = "gemini-1.5-flash";
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const model = genAI.getGenerativeModel({ model: MODEL });
 
-export async function generateAIPricing(input: AIPricingInput): Promise<AIPricing> {
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+export async function generateAIPricing(
+  input: AIPricingInput
+): Promise<AIPricing> {
+  try {
+    const prompt = `
+Estimate market pricing for this home. Return a structured JSON object.
 
-  const prompt = `
-Estimate fair-market price for a home based on:
-
-Price: $${input.price}
-Address: ${input.address}
+Title: ${input.title}
 Description: ${input.description}
-Tags: ${input.tags.join(", ")}
+Beds: ${input.beds}
+Baths: ${input.baths}
+Square feet: ${input.sqft}
+ZIP: ${input.zip}
 
-Return JSON only:
+Return ONLY JSON:
 {
   "estimate": number,
   "low": number,
   "high": number,
   "downPayment": number,
-  "confidence": "low | medium | high",
-  "reasoning": "string"
+  "confidence": "low|medium|high",
+  "reasoning": "explanation"
 }
 `;
 
-  const result = await model.generateContent(prompt);
-  const text = result.response.text();
+    const response = await model.generateContent(prompt);
+    const jsonText = response.response.text().trim();
 
-  return JSON.parse(text) as AIPricing;
+    return JSON.parse(jsonText);
+  } catch (err) {
+    console.error("AI pricing error:", err);
+
+    return {
+      estimate: 0,
+      low: 0,
+      high: 0,
+      downPayment: 0,
+      confidence: "low",
+      reasoning: "AI pricing unavailable.",
+    };
+  }
 }

@@ -1,75 +1,59 @@
-/**
- * Cloud Functions for HI AWTO
- * - AI image tagging via Google Cloud Vision
- */
+// functions/index.js
+import * as functions from "firebase-functions";
+import admin from "firebase-admin";   // ✅ use default import
 
-const functions = require("firebase-functions");
-const admin = require("firebase-admin");
-const vision = require("@google-cloud/vision");
+import { generateVisionData } from "./aiVision.js";
+import { generateAIPricing } from "./aiPricing.js";
+import { runFraudCheck } from "./aiFraud.js";
+import { submitLead } from "./submit-lead.js";
 
-// Initialize Firebase Admin (only once)
-if (!admin.apps.length) {
-  admin.initializeApp();
-}
+// Initialize Firebase Admin SDK
+admin.initializeApp();
 
-// Google Cloud Vision client
-// Make sure Vision API is enabled in your GCP project.
-const visionClient = new vision.ImageAnnotatorClient();
+// 🔥 Full pipeline: tags + caption + description + pricing + fraud
+export const onListingWrite = functions.firestore
+  .document("listings/{id}")
+  .onWrite(async (change, ctx) => {
+    const after = change.after.data();
+    if (!after) return;
 
-/**
- * Callable function:
- * analyzeImageLabels({ imageUrl })
- *
- * - imageUrl: HTTPS URL to the image (e.g. Firebase Storage download URL)
- * - Returns: { tags: string[], raw: ... }
- *
- * This runs on the backend, so your Vision API key/credentials
- * never touch the client.
- */
-exports.analyzeImageLabels = functions
-  .region("us-central1")
-  .https.onCall(async (data, context) => {
-    const imageUrl = data?.imageUrl;
+    const imageUrl = after.imageUrls?.[0];
+    if (!imageUrl) return;
 
-    if (!context.auth) {
-      throw new functions.https.HttpsError(
-        "unauthenticated",
-        "You must be signed in to analyze images."
-      );
-    }
+    // AI Vision
+    const vision = await generateVisionData(imageUrl);
 
-    if (!imageUrl || typeof imageUrl !== "string") {
-      throw new functions.https.HttpsError(
-        "invalid-argument",
-        "imageUrl (string) is required."
-      );
-    }
+    // AI Pricing
+    const pricing = await generateAIPricing({
+      title: after.title || "",
+      description: after.description || "",
+      price: after.price || 0,
+      beds: after.beds || 0,
+      baths: after.baths || 0,
+      sqft: after.sqft || 0,
+      zip: after.zip || ""
+    });
 
-    try {
-      // Ask Vision for labels on this image
-      const [result] = await visionClient.labelDetection(imageUrl);
-      const labels = result.labelAnnotations || [];
+    // AI Fraud
+    const fraud = await runFraudCheck(after);
 
-      // Convert labels to simple "tags"
-      const tags = labels
-        .filter((label) => label.score >= 0.7) // keep only confident labels
-        .map((label) => label.description.trim().toLowerCase())
-        .filter(Boolean);
-
-      return {
-        tags,
-        raw: {
-          labels: labels.map((l) => ({
-            description: l.description,
-            score: l.score,
-          })),
-        },
-      };
-    } catch (err) {
-      console.error("Vision analyzeImageLabels error:", err);
-      throw new functions.https.HttpsError(
-        "internal",
-        "Failed to analyze image."
-      );
-    }
+    await change.after.ref.update({
+      aiTags: vision.tags,
+      aiCaption: vision.caption,
+      aiFullDescription: vision.fullDescription,
+      aiPricing: pricing,
+      aiFraud: fraud
+    });
   });
+
+// Manual endpoint if needed
+export const generateAIForListing = functions.https.onCall(async (data) => {
+  const vision = await generateVisionData(data.imageUrl);
+  const pricing = await generateAIPricing(data);
+  const fraud = await runFraudCheck(data);
+
+  return { vision, pricing, fraud };
+});
+
+// Public lead submission
+export { submitLead };

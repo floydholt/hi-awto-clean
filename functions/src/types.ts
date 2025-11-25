@@ -1,4 +1,4 @@
-// All shared AI interfaces
+// Shared Types for all AI modules
 
 export interface AIVisionResult {
   tags: string[];
@@ -9,16 +9,17 @@ export interface AIDescriptionInput {
   title: string;
   address: string;
   description: string;
-  price: number;
-  downPayment: number;
   tags: string[];
 }
 
 export interface AIPricingInput {
-  price: number;
-  address: string;
+  title: string;
   description: string;
-  tags: string[];
+  price: number;
+  beds: number;
+  baths: number;
+  sqft: number;
+  zip: string;
 }
 
 export interface AIPricing {
@@ -31,7 +32,7 @@ export interface AIPricing {
 }
 
 export interface ListingFraudAssessment {
-  riskScore: number;
+  score: number;
   flags: string[];
-  explanation: string;
+  verdict: "legitimate" | "suspicious" | "fraudulent";
 }
