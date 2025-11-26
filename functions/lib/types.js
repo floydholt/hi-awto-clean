@@ -1,4 +1,3 @@
-"use strict";
-// Shared Types for all AI modules
-Object.defineProperty(exports, "__esModule", { value: true });
+// functions/src/types.ts
+export {};
 //# sourceMappingURL=types.js.map

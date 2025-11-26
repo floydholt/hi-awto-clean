@@ -48,3 +48,14 @@ service cloud.firestore {
   allow write: if request.auth != null && request.auth.token.role == "admin";
 }
 
+match /listings/{listingId} {
+  allow read;
+
+  // Only admins can approve/deny
+  allow update: if request.auth != null &&
+                request.auth.token.admin == true;
+
+  // Normal users can create/edit only their own listings
+  allow create, update: if request.auth != null &&
+                        request.auth.uid == resource.data.ownerId;
+}

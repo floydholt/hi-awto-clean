@@ -1,19 +1,15 @@
 {
   "functions": {
-    "source": "functions"
+    "source": "functions",
+    "ignore": [
+      "node_modules/**",
+      "src/**",
+      ".eslintrc.js",
+      "tsconfig.json"
+    ]
   },
   "hosting": {
     "public": "build",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**"
-    ],
-    "rewrites": [
-      {
-        "source": "**",
-        "destination": "/index.html"
-      }
-    ]
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
   }
 }

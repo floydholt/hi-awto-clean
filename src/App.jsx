@@ -27,6 +27,8 @@ import AdminUsers from "./pages/AdminUsers.jsx";
 import SearchListings from "./pages/SearchListings.jsx";
 import About from "./pages/About.jsx";
 
+import AdminFraud from "./pages/AdminFraud.jsx";
+
 function App() {
   return (
     <Router>
@@ -52,6 +54,8 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+        <Route path="/admin/fraud" element={<AdminFraud />} />
 
         <Route
           path="/create-listing"

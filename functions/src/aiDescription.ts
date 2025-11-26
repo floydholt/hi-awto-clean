@@ -1,28 +1,35 @@
+// functions/src/aiDescription.ts
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import type { AIDescriptionInput } from "./types.js";
+import type { DescriptionInput } from "./types.js";
 
-const MODEL = "gemini-1.5-flash";
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-const model = genAI.getGenerativeModel({ model: MODEL });
 
+/**
+ * Generate a polished real-estate listing description.
+ */
 export async function generateAIDescription(
-  input: AIDescriptionInput
+  input: DescriptionInput
 ): Promise<string> {
-  try {
-    const prompt = `
-Write a warm, friendly, professional full-length property listing description.
+  const { title, description, tags } = input;
 
-Title: ${input.title}
-Address: ${input.address}
-Owner notes: ${input.description}
-AI Tags: ${input.tags.join(", ")}
+  const prompt = `
+Create a professional real-estate property description.
 
-Length: 2–4 paragraphs.`;
+Return ONLY the description text (no JSON).
 
-    const result = await model.generateContent(prompt);
-    return result.response.text().trim();
-  } catch (err) {
-    console.error("AI description error:", err);
-    return "";
-  }
+Details:
+Title: ${title}
+Owner Description: ${description}
+Tags: ${tags.join(", ")}
+
+Tone:
+- Friendly
+- Clear
+- Excited but realistic
+- 140–220 words
+`;
+
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const result = await model.generateContent([{ text: prompt }]);
+  return result.response.text().trim();
 }

@@ -1,18 +1,17 @@
-// Shared Types for all AI modules
+// functions/src/types.ts
 
-export interface AIVisionResult {
+export interface VisionResult {
   tags: string[];
   caption: string;
 }
 
-export interface AIDescriptionInput {
+export interface DescriptionInput {
   title: string;
-  address: string;
   description: string;
   tags: string[];
 }
 
-export interface AIPricingInput {
+export interface PricingInput {
   title: string;
   description: string;
   price: number;
@@ -31,8 +30,7 @@ export interface AIPricing {
   reasoning: string;
 }
 
-export interface ListingFraudAssessment {
-  score: number;
-  flags: string[];
-  verdict: "legitimate" | "suspicious" | "fraudulent";
+export interface FraudAssessment {
+  score: number; // 1–10
+  explanation: string;
 }

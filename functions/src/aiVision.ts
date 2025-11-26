@@ -1,53 +1,78 @@
+/**
+ * aiVision.ts
+ * Gemini 1.5 Flash Vision Tagging + Captioning
+ */
+
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import type { VisionResult } from "./types.js";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const client = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const model = client.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-// Convert image URL to base64
-async function fetchImageAsBase64(url: string): Promise<string> {
+/**
+ * Converts an image URL → Base64 inlineData part
+ */
+async function imageUrlToPart(url: string) {
   const res = await fetch(url);
-  const arrayBuffer = await res.arrayBuffer();
-  const bytes = Buffer.from(arrayBuffer);
-  return bytes.toString("base64");
+  const blob = await res.blob();
+  const arrayBuffer = await blob.arrayBuffer();
+  const base64 = Buffer.from(arrayBuffer).toString("base64");
+
+  return {
+    inlineData: {
+      data: base64,
+      mimeType: blob.type || "image/jpeg"
+    }
+  };
 }
 
-export interface VisionResult {
-  tags: string[];
-  caption: string;
-}
-
-export async function generateAITags(imageUrl: string): Promise<VisionResult> {
+/**
+ * Main AI Vision function
+ */
+export async function generateAITags(
+  imageUrls: string[]
+): Promise<VisionResult> {
   try {
-    const base64 = await fetchImageAsBase64(imageUrl);
+    if (!imageUrls.length) {
+      return { tags: [], caption: null };
+    }
 
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.0-vision-preview"
+    // Convert all images → inline parts
+    const imageParts = await Promise.all(
+      imageUrls.map((url) => imageUrlToPart(url))
+    );
+
+    const prompt =
+      "Extract 12–18 short keywords describing this property (no spaces, hyphens only). " +
+      "Then generate a 1-sentence natural-language caption (max 18 words). " +
+      "Return JSON with { tags: string[], caption: string }.";
+
+    const result = await model.generateContent({
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: prompt }, ...imageParts]
+        }
+      ]
     });
 
-    const prompt = `
-You are an AI that extracts tags describing a real estate listing photo.
-Output 8–15 short tags only (no sentences). Also output one short natural caption.
-Return JSON:
-{
-  "tags": ["tag1","tag2",...],
-  "caption": "a short caption"
-}
-    `;
+    const text = result.response.text();
 
-    const result = await model.generateContent([
-      { text: prompt },
-      { inlineData: { mimeType: "image/jpeg", data: base64 } }
-    ]);
+    let parsed: VisionResult;
 
-    const text = result.response.text().trim();
-
-    const parsed = JSON.parse(text);
+    try {
+      parsed = JSON.parse(text);
+    } catch (err) {
+      console.error("AI Vision: Could not parse JSON:", text);
+      return { tags: [], caption: null };
+    }
 
     return {
-      tags: parsed.tags ?? [],
-      caption: parsed.caption ?? ""
+      tags: Array.isArray(parsed.tags) ? parsed.tags : [],
+      caption: parsed.caption ?? null
     };
   } catch (err) {
-    console.error("Vision AI error:", err);
-    return { tags: [], caption: "" };
+    console.error("AI Vision Error:", err);
+    return { tags: [], caption: null };
   }
 }

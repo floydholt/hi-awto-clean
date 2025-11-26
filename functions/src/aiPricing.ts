@@ -1,49 +1,56 @@
+// functions/src/aiPricing.ts
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import type { AIPricingInput, AIPricing } from "./types.js";
+import type { PricingInput, AIPricing } from "./types.js";
 
-const MODEL = "gemini-1.5-flash";
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-const model = genAI.getGenerativeModel({ model: MODEL });
 
+/**
+ * Predict suggested listing price.
+ */
 export async function generateAIPricing(
-  input: AIPricingInput
+  input: PricingInput
 ): Promise<AIPricing> {
-  try {
-    const prompt = `
-Estimate market pricing for this home. Return a structured JSON object.
+  const prompt = `
+You are estimating a fair lease-to-own listing price.
 
-Title: ${input.title}
-Description: ${input.description}
-Beds: ${input.beds}
-Baths: ${input.baths}
-Square feet: ${input.sqft}
-ZIP: ${input.zip}
-
-Return ONLY JSON:
+Return JSON ONLY:
 {
   "estimate": number,
   "low": number,
   "high": number,
   "downPayment": number,
-  "confidence": "low|medium|high",
-  "reasoning": "explanation"
+  "confidence": "high|medium|low",
+  "reasoning": "1 sentence explanation"
 }
+
+Input:
+${JSON.stringify(input, null, 2)}
 `;
 
-    const response = await model.generateContent(prompt);
-    const jsonText = response.response.text().trim();
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const result = await model.generateContent([{ text: prompt }]);
+  let raw = result.response.text().trim();
 
-    return JSON.parse(jsonText);
-  } catch (err) {
-    console.error("AI pricing error:", err);
+  try {
+    const json = JSON.parse(raw);
 
+    return {
+      estimate: Number(json.estimate ?? 0),
+      low: Number(json.low ?? 0),
+      high: Number(json.high ?? 0),
+      downPayment: Number(json.downPayment ?? 0),
+      confidence: json.confidence || "medium",
+      reasoning: json.reasoning || "",
+    };
+  } catch (e) {
+    console.error("Pricing parse error:", raw, e);
     return {
       estimate: 0,
       low: 0,
       high: 0,
       downPayment: 0,
       confidence: "low",
-      reasoning: "AI pricing unavailable.",
+      reasoning: "AI fallback estimate.",
     };
   }
 }

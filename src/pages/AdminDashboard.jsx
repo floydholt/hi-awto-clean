@@ -1,232 +1,336 @@
 // src/pages/AdminDashboard.jsx
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getAdminListings } from "../firebase/listings.js";
 
-export default function AdminDashboard() {
-  const [loading, setLoading] = useState(true);
-  const [listings, setListings] = useState([]);
+import {
+  listenToListingCounts,
+  listenToUserCounts,
+  listenToThreadCounts,
+  loadListingsTimeSeries,
+} from "../firebase/adminAnalytics.js";
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const data = await getAdminListings("all");
-        setListings(data);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+import { loadFraudSeries } from "../firebase/fraudAnalytics.js";
 
-  const total = listings.length;
-  const pending = listings.filter((l) => l.status === "pending").length;
-  const approved = listings.filter((l) => l.status === "approved").length;
-  const rejected = listings.filter((l) => l.status === "rejected").length;
+/* -------------------------------------------------------
+   AI INSIGHTS (local natural-language generator)
+------------------------------------------------------- */
+function buildInsightsText({ listingStats, userStats, threadStats, series, range }) {
+  if (!listingStats || !userStats || !threadStats || !series.length) {
+    return "Not enough data yet. As activity flows in, this panel will summarize trends for you.";
+  }
 
-  const highRisk = listings.filter(
-    (l) => typeof l.aiFraudScore === "number" && l.aiFraudScore >= 0.8
+  const totalListings = listingStats.total ?? 0;
+  const approved = listingStats.approved ?? 0;
+  const pending = listingStats.pending ?? 0;
+  const rejected = listingStats.rejected ?? 0;
+
+  const totalUsers = userStats.total ?? 0;
+  const admins = userStats.admins ?? 0;
+
+  const totalThreads = threadStats.totalThreads ?? 0;
+  const activeLast7d = threadStats.activeLast7d ?? 0;
+
+  const newInRange = series.reduce((sum, p) => sum + (p.count || 0), 0);
+  const avgPerDay = range > 0 ? newInRange / range : 0;
+
+  const busiestDay = series.reduce(
+    (best, p) => (p.count > best.count ? p : best),
+    { label: "", count: 0 }
   );
 
-  const needsReview = listings
-    .filter((l) => l.status === "pending" || (l.aiFraudScore || 0) >= 0.6)
-    .slice(0, 5);
+  return `
+Over the last ${range} days, HI-AWTO received ${newInRange} new listings (${avgPerDay.toFixed(
+    1
+  )}/day avg).
+
+The busiest day was ${busiestDay.label}, with ${busiestDay.count} new listings.
+
+You currently have ${totalListings} total listings: ${approved} approved, ${pending} pending, and ${rejected} rejected.
+
+There are ${totalUsers} users registered, with ${admins} admins.
+
+Messaging activity includes ${totalThreads} conversation threads, ${activeLast7d} of which were active recently.
+
+If pending or rejected listings stay high while new listing volume slows, consider improving fraud rules or listing clarity.
+`;
+}
+
+/* -------------------------------------------------------
+   MAIN COMPONENT
+------------------------------------------------------- */
+export default function AdminDashboard() {
+  const [listingStats, setListingStats] = useState(null);
+  const [userStats, setUserStats] = useState(null);
+  const [threadStats, setThreadStats] = useState(null);
+
+  const [series, setSeries] = useState([]);
+  const [range, setRange] = useState(7);
+  const [loadingSeries, setLoadingSeries] = useState(false);
+
+  /* FRAUD SERIES */
+  const [fraudSeries, setFraudSeries] = useState([]);
+  const [fraudRange, setFraudRange] = useState(30);
+  const [loadingFraud, setLoadingFraud] = useState(false);
+
+  /* REAL-TIME LISTENERS */
+  useEffect(() => {
+    const u1 = listenToListingCounts(setListingStats);
+    const u2 = listenToUserCounts(setUserStats);
+    const u3 = listenToThreadCounts(setThreadStats);
+    return () => {
+      u1 && u1();
+      u2 && u2();
+      u3 && u3();
+    };
+  }, []);
+
+  /* LOAD LISTINGS CHART */
+  useEffect(() => {
+    setLoadingSeries(true);
+    loadListingsTimeSeries(range)
+      .then(setSeries)
+      .finally(() => setLoadingSeries(false));
+  }, [range]);
+
+  /* LOAD FRAUD CHART */
+  useEffect(() => {
+    setLoadingFraud(true);
+    loadFraudSeries(fraudRange)
+      .then(setFraudSeries)
+      .finally(() => setLoadingFraud(false));
+  }, [fraudRange]);
+
+  const maxCount =
+    series.length > 0 ? Math.max(...series.map((s) => s.count || 0)) : 1;
+
+  const maxFraud =
+    fraudSeries.length > 0 ? Math.max(...fraudSeries.map((p) => p.avg)) : 1;
+
+  const insightsText = buildInsightsText({
+    listingStats,
+    userStats,
+    threadStats,
+    series,
+    range,
+  });
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-10">
-      <div className="flex items-center justify-between mb-6">
+    <div className="max-w-6xl mx-auto px-6 py-10 space-y-10">
+      {/* HEADER */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-900">
-            Admin Dashboard
-          </h1>
+          <h1 className="text-3xl font-bold text-slate-900">Admin Analytics</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Review AI insights, approve listings, and monitor fraud risk.
+            Track platform growth, fraud, and listing activity.
           </p>
         </div>
 
         <div className="flex gap-2">
           <Link
             to="/admin/listings"
-            className="px-4 py-2 rounded-full bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700"
+            className="px-3 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700"
           >
-            Review Listings
+            Listings Moderation
           </Link>
           <Link
-            to="/admin/messages"
-            className="px-4 py-2 rounded-full border border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            to="/admin/fraud"
+            className="px-3 py-2 text-sm rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
           >
-            Admin Inbox
+            Fraud Review
           </Link>
         </div>
       </div>
 
-      {/* SUMMARY CARDS */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <SummaryCard label="Total listings" value={total} />
-        <SummaryCard label="Pending review" value={pending} highlight />
-        <SummaryCard label="Approved" value={approved} />
-        <SummaryCard label="Rejected" value={rejected} />
-      </div>
+      {/* INSIGHTS */}
+      <section className="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
+        <h2 className="text-sm font-semibold text-slate-800 mb-2">
+          AI Insights (auto summary)
+        </h2>
+        <p className="text-sm whitespace-pre-line text-slate-700">
+          {insightsText}
+        </p>
+      </section>
 
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* REVIEW QUEUE */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold text-slate-900 text-sm">
-              Listings needing attention
+      {/* KPI GRID */}
+      <KpiGrid
+        listingStats={listingStats}
+        userStats={userStats}
+        threadStats={threadStats}
+      />
+
+      {/* LISTINGS CHART */}
+      <section className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+        <div className="flex justify-between mb-4">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-800">
+              New Listings Over Time
             </h2>
-            <Link
-              to="/admin/listings"
-              className="text-xs text-blue-600 hover:underline"
-            >
-              View all
-            </Link>
-          </div>
-
-          {loading && (
-            <p className="text-xs text-slate-500">Loading listings…</p>
-          )}
-
-          {!loading && needsReview.length === 0 && (
             <p className="text-xs text-slate-500">
-              No urgent items right now. 🎉
+              Choose a time range or export CSV.
             </p>
-          )}
+          </div>
 
-          <ul className="mt-2 space-y-2">
-            {needsReview.map((l) => (
-              <li
-                key={l.id}
-                className="flex items-start justify-between gap-3 rounded-lg border border-slate-100 px-3 py-2"
+          <div className="flex gap-2">
+            {[7, 30, 90].map((d) => (
+              <button
+                key={d}
+                onClick={() => setRange(d)}
+                className={`px-3 py-1 text-xs rounded-full border ${
+                  range === d
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-slate-600 border-slate-300"
+                }`}
               >
-                <div>
-                  <div className="text-sm font-medium text-slate-900">
-                    {l.title || "Untitled listing"}
-                  </div>
-                  <div className="text-xs text-slate-500">
-                    {l.address || "No address"} • $
-                    {l.price?.toLocaleString?.() || l.price}
-                  </div>
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    <StatusPill status={l.status} />
-                    <FraudPill score={l.aiFraudScore} />
-                  </div>
-                </div>
-                <Link
-                  to={`/admin/listings?id=${l.id}`}
-                  className="text-xs text-blue-600 hover:underline shrink-0"
-                >
-                  Review →
-                </Link>
-              </li>
+                {d}d
+              </button>
             ))}
-          </ul>
+          </div>
         </div>
 
-        {/* FRAUD + AI INSIGHTS */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4">
-          <h2 className="font-semibold text-slate-900 text-sm mb-3">
-            AI fraud & pricing insights
-          </h2>
+        {/* Chart */}
+        <ListingsChart series={series} loading={loadingSeries} maxCount={maxCount} />
+      </section>
 
-          <p className="text-xs text-slate-500 mb-3">
-            High-risk listings are detected by your Gemini-powered fraud model.
-            Use this as a guide, not a final decision.
-          </p>
-
-          <div className="flex items-center gap-4 mb-4">
-            <div className="flex-1">
-              <div className="text-xs text-slate-500 mb-1">
-                High-risk listings (AI)
-              </div>
-              <div className="text-xl font-semibold text-red-600">
-                {highRisk.length}
-              </div>
-            </div>
-            <div className="flex-1">
-              <div className="text-xs text-slate-500 mb-1">
-                Pending manual review
-              </div>
-              <div className="text-xl font-semibold text-amber-600">
-                {pending}
-              </div>
-            </div>
-          </div>
-
-          <div className="border-t border-slate-100 pt-3">
-            <p className="text-[11px] text-slate-500 mb-2">
-              AI signals available per listing:
+      {/* FRAUD TREND CHART */}
+      <section className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+        <div className="flex justify-between mb-4">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-800">
+              AI Fraud Risk Trend
+            </h2>
+            <p className="text-xs text-slate-500">
+              Daily average fraud scores with anomaly detection.
             </p>
-            <ul className="text-[11px] text-slate-600 list-disc list-inside space-y-1">
-              <li>AI tags (features, style, neighborhood hints)</li>
-              <li>AI caption and full description</li>
-              <li>AI pricing range and confidence</li>
-              <li>AI fraud risk score & reasoning</li>
-            </ul>
+          </div>
+
+          <div className="flex gap-2">
+            {[7, 30, 90].map((d) => (
+              <button
+                key={d}
+                onClick={() => setFraudRange(d)}
+                className={`px-3 py-1 text-xs rounded-full border ${
+                  fraudRange === d
+                    ? "bg-red-600 text-white border-red-600"
+                    : "bg-white text-slate-600 border-slate-300"
+                }`}
+              >
+                {d}d
+              </button>
+            ))}
           </div>
         </div>
-      </div>
+
+        <FraudChart series={fraudSeries} loading={loadingFraud} maxFraud={maxFraud} />
+      </section>
     </div>
   );
 }
 
-function SummaryCard({ label, value, highlight = false }) {
+/* -------------------------------------------------------
+   SUBCOMPONENTS
+------------------------------------------------------- */
+
+function ListingsChart({ series, loading, maxCount }) {
+  if (loading) return <p className="text-xs text-slate-400">Loading…</p>;
+  if (!series.length) return <p className="text-xs text-slate-400">No data</p>;
+
   return (
-    <div
-      className={`rounded-xl border px-4 py-3 ${
-        highlight
-          ? "border-amber-200 bg-amber-50"
-          : "border-slate-100 bg-white"
-      }`}
-    >
-      <div className="text-xs text-slate-500">{label}</div>
-      <div className="mt-1 text-xl font-semibold text-slate-900">{value}</div>
+    <div className="h-48 flex items-end gap-2">
+      {series.map((p, idx) => {
+        const height = 14 + (p.count / maxCount) * 100;
+        return (
+          <div key={idx} className="flex-1 flex flex-col items-center">
+            <div
+              className="w-full bg-gradient-to-t from-blue-500 to-blue-300 rounded-t-lg"
+              style={{ height }}
+            />
+            <div className="text-[10px] text-slate-500 mt-1">{p.label}</div>
+            <div className="text-[10px] text-slate-400">{p.count}</div>
+          </div>
+        );
+      })}
     </div>
   );
 }
 
-function StatusPill({ status }) {
-  const s = status || "pending";
-  let label = s;
-  let classes =
-    "inline-flex items-center px-2 py-0.5 rounded-full text-[11px] border";
+function FraudChart({ series, loading, maxFraud }) {
+  if (loading) return <p className="text-xs text-slate-400">Loading…</p>;
+  if (!series.length) return <p className="text-xs text-slate-400">No data</p>;
 
-  if (s === "approved") {
-    classes += " bg-emerald-50 text-emerald-700 border-emerald-200";
-    label = "Approved";
-  } else if (s === "rejected") {
-    classes += " bg-rose-50 text-rose-700 border-rose-200";
-    label = "Rejected";
-  } else {
-    classes += " bg-amber-50 text-amber-700 border-amber-200";
-    label = "Pending";
-  }
+  return (
+    <div className="h-48 flex items-end gap-2">
+      {series.map((p, idx) => {
+        const height = 10 + (p.avg / maxFraud) * 100;
+        const color = p.anomaly
+          ? "from-red-600 to-red-400"
+          : "from-blue-600 to-blue-300";
 
-  return <span className={classes}>{label}</span>;
+        return (
+          <div key={idx} className="flex-1 flex flex-col items-center">
+            <div
+              className={`w-full bg-gradient-to-t ${color} rounded-t-lg`}
+              style={{ height }}
+            />
+            <div className="text-[10px] text-slate-500 mt-1">{p.label}</div>
+            <div
+              className={`text-[10px] ${
+                p.anomaly ? "text-red-600 font-bold" : "text-slate-400"
+              }`}
+            >
+              {p.avg}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
-function FraudPill({ score }) {
-  if (typeof score !== "number") {
-    return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-slate-50 text-slate-600 border border-slate-200">
-        AI fraud: n/a
-      </span>
-    );
-  }
+function KpiGrid({ listingStats, userStats, threadStats }) {
+  return (
+    <div className="grid md:grid-cols-3 gap-4">
+      <StatCard
+        title="Total Listings"
+        primary={listingStats?.total ?? "—"}
+        sublabel="Approved / Pending / Rejected"
+        detail={
+          listingStats
+            ? `${listingStats.approved} / ${listingStats.pending} / ${listingStats.rejected}`
+            : "—"
+        }
+        accent="bg-blue-50 text-blue-700"
+      />
 
-  const pct = Math.round(score * 100);
+      <StatCard
+        title="Registered Users"
+        primary={userStats?.total ?? "—"}
+        sublabel="Admins"
+        detail={userStats?.admins ?? "—"}
+        accent="bg-emerald-50 text-emerald-700"
+      />
 
-  let classes =
-    "inline-flex items-center px-2 py-0.5 rounded-full text-[11px] border";
-  let label = `AI fraud: ${pct}%`;
+      <StatCard
+        title="Message Threads"
+        primary={threadStats?.totalThreads ?? "—"}
+        sublabel="Active last 7d"
+        detail={threadStats?.activeLast7d ?? "—"}
+        accent="bg-purple-50 text-purple-700"
+      />
+    </div>
+  );
+}
 
-  if (score >= 0.8) {
-    classes += " bg-red-50 text-red-700 border-red-200";
-  } else if (score >= 0.5) {
-    classes += " bg-amber-50 text-amber-700 border-amber-200";
-  } else {
-    classes += " bg-emerald-50 text-emerald-700 border-emerald-200";
-  }
-
-  return <span className={classes}>{label}</span>;
+function StatCard({ title, primary, sublabel, detail, accent }) {
+  return (
+    <div className="bg-white rounded-xl shadow-sm border p-4">
+      <div className="text-xs uppercase font-semibold text-slate-500">
+        {title}
+      </div>
+      <div className="text-3xl font-bold mt-1">{primary}</div>
+      <div className={`inline-block mt-1 px-2 py-1 text-[11px] rounded-full ${accent}`}>
+        {sublabel}
+      </div>
+      <div className="text-xs text-slate-500 mt-2">{detail}</div>
+    </div>
+  );
 }

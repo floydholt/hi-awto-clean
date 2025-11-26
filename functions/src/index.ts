@@ -1,81 +1,100 @@
+// functions/src/index.ts
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
-import { initializeApp } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
+import * as admin from "firebase-admin";
 
 import { generateAITags } from "./aiVision.js";
-
 import { generateAIDescription } from "./aiDescription.js";
 import { generateAIPricing } from "./aiPricing.js";
 import { runFraudCheck } from "./aiFraud.js";
 
-initializeApp();
-const db = getFirestore();
+admin.initializeApp();
+const db = admin.firestore();
 
 export const onListingWrite = onDocumentWritten(
-  "listings/{id}",
+  {
+    document: "listings/{id}",
+    region: "us-central1",
+  },
   async (event) => {
-    const after = event.data?.after?.data();
-    if (!after) return;
-
+    const before = event.data?.before?.data() || null;
+    const after = event.data?.after?.data() || null;
     const id = event.params.id;
-    const ref = db.collection("listings").doc(id);
 
-    let aiTags = after.aiTags ?? [];
-    let aiCaption = after.aiCaption ?? "";
-    let aiFullDescription = after.aiFullDescription ?? "";
-    let aiPricing = after.aiPricing ?? null;
-    let fraud = after.fraud ?? null;
+    if (!after) return; // deleted
 
-    const firstImage = after.imageUrls?.[0] ?? null;
+    const listingRef = db.collection("listings").doc(id);
 
-    // 1) Vision AI
-    if (firstImage) {
-      const vision = await generateAITags(firstImage);
-      aiTags = vision.tags;
-      aiCaption = vision.caption;
+    // 1) VISION
+    let aiTags: string[] = [];
+    let aiCaption = "";
+
+    if (Array.isArray(after.imageUrls) && after.imageUrls.length > 0) {
+      try {
+        const vision = await generateAITags(after.imageUrls);
+        aiTags = vision.tags;
+        aiCaption = vision.caption;
+      } catch (err) {
+        console.error("Vision error:", err);
+      }
     }
 
-    // 2) Full AI description
-    aiFullDescription = await generateAIDescription({
-      title: after.title ?? "",
-      address: after.address ?? "",
-      description: after.description ?? "",
-      tags: aiTags,
-    });
+    // 2) FULL DESCRIPTION
+    let aiFullDescription = "";
+    try {
+      aiFullDescription = await generateAIDescription({
+        title: after.title ?? "",
+        description: after.description ?? "",
+        tags: aiTags,
+      });
+    } catch (err) {
+      console.error("Description error:", err);
+    }
 
-    // 3) Pricing
-    aiPricing = await generateAIPricing({
-      title: after.title ?? "",
-      description: after.description ?? aiFullDescription,
-      price: Number(after.price ?? 0),
-      beds: after.beds ?? 0,
-      baths: after.baths ?? 0,
-      sqft: after.sqft ?? 0,
-      zip: after.zip ?? "",
-    });
+    // 3) PRICING
+    let aiPricing = null;
+    try {
+      aiPricing = await generateAIPricing({
+        title: after.title ?? "",
+        description: after.description ?? "",
+        price: Number(after.price ?? 0),
+        beds: Number(after.beds ?? 0),
+        baths: Number(after.baths ?? 0),
+        sqft: Number(after.sqft ?? 0),
+        zip: String(after.zip ?? ""),
+      });
+    } catch (err) {
+      console.error("Pricing error:", err);
+    }
 
-    // 4) Fraud detection
-    const fraudText = `
-${after.title}
-${after.description}
-${aiFullDescription}
-${aiPricing?.reasoning}
-    `;
-    fraud = await runFraudCheck(fraudText);
+    // 4) FRAUD
+    let aiFraud = null;
+    try {
+      aiFraud = await runFraudCheck(after);
 
-    // 5) Write back
-    await ref.set(
+      await db.collection("fraudSignals").doc(id).set(
+        {
+          id,
+          score: aiFraud.score,
+          explanation: aiFraud.explanation,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+    } catch (err) {
+      console.error("Fraud error:", err);
+    }
+
+    // 5) WRITE BACK
+    await listingRef.set(
       {
         aiTags,
         aiCaption,
         aiFullDescription,
         aiPricing,
-        fraud,
-        aiProcessedAt: new Date(),
+        aiFraud,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       },
       { merge: true }
     );
-
-    console.log(`AI pipeline completed for listing ${id}`);
   }
 );

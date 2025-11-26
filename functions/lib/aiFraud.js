@@ -1,34 +1,49 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.runFraudCheck = runFraudCheck;
-const generative_ai_1 = require("@google/generative-ai");
-const MODEL = "gemini-1.5-flash";
-const genAI = new generative_ai_1.GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: MODEL });
-async function runFraudCheck(text) {
-    try {
-        const prompt = `
-Analyze this listing for fraud or suspicious behavior.
-Return ONLY JSON structured like:
+// functions/src/aiFraud.ts
+import { GoogleGenerativeAI } from "@google/generative-ai";
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+/**
+ * Analyze a listing for fraud or suspicious content.
+ */
+export async function runFraudCheck(listing) {
+    const prompt = `
+Fraud detection for real-estate marketplace.
 
+Return JSON ONLY:
 {
-  "score": number,
-  "flags": string[],
-  "verdict": "legitimate" | "suspicious" | "fraudulent"
+  "score": 1-10,
+  "explanation": "1 short sentence"
 }
 
-Text:
-${text}
+High risk signs:
+- Price too low
+- Reused images
+- Mismatched address
+- Very short or nonsense description
+- Missing required fields
+- Overly generic photos
+
+Listing:
+${JSON.stringify(listing, null, 2)}
 `;
-        const res = await model.generateContent(prompt);
-        return JSON.parse(res.response.text());
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const result = await model.generateContent([{ text: prompt }]);
+    const raw = result.response.text();
+    try {
+        const parsed = JSON.parse(raw);
+        return {
+            score: Number(parsed.score) >= 1 && Number(parsed.score) <= 10
+                ? Number(parsed.score)
+                : 5,
+            explanation: typeof parsed.explanation === "string"
+                ? parsed.explanation
+                : "AI fallback reasoning.",
+        };
     }
     catch (err) {
-        console.error("Fraud check error:", err);
+        console.error("Fraud parse failed:", err, raw);
         return {
-            score: 0,
-            flags: [],
-            verdict: "legitimate",
+            score: 5,
+            explanation: "AI fallback risk estimate.",
         };
     }
 }
