@@ -1,2 +1,41 @@
-# Auto detect text files and perform LF normalization
+# Ensure consistent line endings
 * text=auto
+
+# Force LF for source code
+*.js text eol=lf
+*.ts text eol=lf
+*.jsx text eol=lf
+*.tsx text eol=lf
+*.json text eol=lf
+*.css text eol=lf
+*.scss text eol=lf
+*.html text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Treat binary files properly
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.pack binary
+
+# Firebase rules and indexes
+firestore.rules text eol=lf
+firestore.indexes.json text eol=lf
+
+# Lock files
+package-lock.json text eol=lf
+
+# Ignore generated map files for diff
+*.map linguist-generated=true
+
+# Optional: mark GraphQL or custom schema files
+*.graphql text eol=lf
+*.gql text eol=lf
