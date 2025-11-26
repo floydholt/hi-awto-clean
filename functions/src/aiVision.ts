@@ -1,41 +1,53 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import type { AIVisionResult } from "./types.js";
-
-const MODEL_VISION = "gemini-1.5-flash";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-const model = genAI.getGenerativeModel({ model: MODEL_VISION });
 
-export async function generateAITags(imageUrl: string): Promise<AIVisionResult> {
+// Convert image URL to base64
+async function fetchImageAsBase64(url: string): Promise<string> {
+  const res = await fetch(url);
+  const arrayBuffer = await res.arrayBuffer();
+  const bytes = Buffer.from(arrayBuffer);
+  return bytes.toString("base64");
+}
+
+export interface VisionResult {
+  tags: string[];
+  caption: string;
+}
+
+export async function generateAITags(imageUrl: string): Promise<VisionResult> {
   try {
+    const base64 = await fetchImageAsBase64(imageUrl);
+
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.0-vision-preview"
+    });
+
+    const prompt = `
+You are an AI that extracts tags describing a real estate listing photo.
+Output 8–15 short tags only (no sentences). Also output one short natural caption.
+Return JSON:
+{
+  "tags": ["tag1","tag2",...],
+  "caption": "a short caption"
+}
+    `;
+
     const result = await model.generateContent([
-      {
-        role: "user",
-        parts: [
-          { text: "Analyze this property image and extract:" },
-          { text: "- 15 descriptive tags" },
-          { text: "- a one-sentence caption" },
-          { image_url: imageUrl } as any // Gemini Vision REST style
-        ],
-      },
+      { text: prompt },
+      { inlineData: { mimeType: "image/jpeg", data: base64 } }
     ]);
 
     const text = result.response.text().trim();
 
-    const tags = text
-      .match(/tags:(.*)/i)?.[1]
-      ?.split(/[,;]+/g)
-      .map((t: string) => t.trim().toLowerCase())
-      .filter(Boolean)
-      .slice(0, 15) ?? [];
+    const parsed = JSON.parse(text);
 
-    const caption =
-      text.match(/caption:(.*)/i)?.[1]?.trim() ??
-      "A home listed on HI-AWTO.";
-
-    return { tags, caption };
+    return {
+      tags: parsed.tags ?? [],
+      caption: parsed.caption ?? ""
+    };
   } catch (err) {
-    console.error("Vision AI Error:", err);
+    console.error("Vision AI error:", err);
     return { tags: [], caption: "" };
   }
 }

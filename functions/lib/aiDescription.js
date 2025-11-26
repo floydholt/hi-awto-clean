@@ -2,30 +2,25 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.generateAIDescription = generateAIDescription;
 const generative_ai_1 = require("@google/generative-ai");
+const MODEL = "gemini-1.5-flash";
 const genAI = new generative_ai_1.GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+const model = genAI.getGenerativeModel({ model: MODEL });
 async function generateAIDescription(input) {
-    var _a, _b;
     try {
         const prompt = `
-Write a full real estate property description using this data:
+Write a warm, friendly, professional full-length property listing description.
 
 Title: ${input.title}
-Features: ${input.tags.join(", ")}
-Price: $${input.price.toLocaleString()}
-Beds: ${input.beds}
-Baths: ${input.baths}
-Sqft: ${input.sqft}
-Zip: ${input.zip}
+Address: ${input.address}
+Owner notes: ${input.description}
+AI Tags: ${input.tags.join(", ")}
 
-Tone: friendly, professional, inspiring.
-Length: 2–4 paragraphs.
-    `;
+Length: 2–4 paragraphs.`;
         const result = await model.generateContent(prompt);
-        return (_b = (_a = result.response) === null || _a === void 0 ? void 0 : _a.text()) !== null && _b !== void 0 ? _b : "";
+        return result.response.text().trim();
     }
     catch (err) {
-        console.error("AI Description failed:", err);
+        console.error("AI description error:", err);
         return "";
     }
 }

@@ -3,6 +3,7 @@ import { initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 
 import { generateAITags } from "./aiVision.js";
+
 import { generateAIDescription } from "./aiDescription.js";
 import { generateAIPricing } from "./aiPricing.js";
 import { runFraudCheck } from "./aiFraud.js";

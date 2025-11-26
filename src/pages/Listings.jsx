@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { getAllListings } from "../firebase/listings.js";
 
+
 const FALLBACK_IMG = "/placeholder-listing.jpg";
 const NEW_DAYS = 14;
 
