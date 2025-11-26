@@ -21,8 +21,8 @@ async function imageUrlToPart(url: string) {
   return {
     inlineData: {
       data: base64,
-      mimeType: blob.type || "image/jpeg"
-    }
+      mimeType: blob.type || "image/jpeg",
+    },
   };
 }
 
@@ -33,14 +33,12 @@ export async function generateAITags(
   imageUrls: string[]
 ): Promise<VisionResult> {
   try {
-    if (!imageUrls.length) {
-      return { tags: [], caption: null };
+    if (imageUrls.length === 0) {
+      return { tags: [], caption: "" };
     }
 
     // Convert all images → inline parts
-    const imageParts = await Promise.all(
-      imageUrls.map((url) => imageUrlToPart(url))
-    );
+    const imageParts = await Promise.all(imageUrls.map(imageUrlToPart));
 
     const prompt =
       "Extract 12–18 short keywords describing this property (no spaces, hyphens only). " +
@@ -51,28 +49,27 @@ export async function generateAITags(
       contents: [
         {
           role: "user",
-          parts: [{ text: prompt }, ...imageParts]
-        }
-      ]
+          parts: [{ text: prompt }, ...imageParts],
+        },
+      ],
     });
 
-    const text = result.response.text();
+    const text = result.response.text().trim();
 
-    let parsed: VisionResult;
-
+    let parsed: any;
     try {
       parsed = JSON.parse(text);
     } catch (err) {
       console.error("AI Vision: Could not parse JSON:", text);
-      return { tags: [], caption: null };
+      return { tags: [], caption: "" };
     }
 
     return {
       tags: Array.isArray(parsed.tags) ? parsed.tags : [],
-      caption: parsed.caption ?? null
+      caption: typeof parsed.caption === "string" ? parsed.caption : "",
     };
   } catch (err) {
     console.error("AI Vision Error:", err);
-    return { tags: [], caption: null };
+    return { tags: [], caption: "" };
   }
 }

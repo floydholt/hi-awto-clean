@@ -1,36 +1,20 @@
-// functions/src/types.ts
+// Centralized AI pipeline types
 
 export interface VisionResult {
   tags: string[];
-  caption: string;
+  caption: string; // always a string, fallback ""
 }
 
-export interface DescriptionInput {
-  title: string;
-  description: string;
-  tags: string[];
-}
-
-export interface PricingInput {
-  title: string;
-  description: string;
-  price: number;
-  beds: number;
-  baths: number;
-  sqft: number;
-  zip: string;
-}
-
-export interface AIPricing {
+export interface PricingEstimate {
   estimate: number;
   low: number;
   high: number;
   downPayment: number;
-  confidence: string;
   reasoning: string;
 }
 
 export interface FraudAssessment {
-  score: number; // 1–10
-  explanation: string;
+  score: number;
+  reason: string;
+  flags: string[];
 }
