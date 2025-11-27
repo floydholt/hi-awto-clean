@@ -1,6 +1,7 @@
 // src/utils/encryptPdf.js
 import { PDFDocument } from "pdf-lib";
-import { encrypt } from "@pdf-lib/encryptor";
+import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+
 
 /**
  * Encrypt a PDF using AES-256 with a user password and optional owner password.
