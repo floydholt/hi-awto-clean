@@ -1,5 +1,4 @@
-// FULL CLEAN, FIXED VERSION — NO JSX ERRORS, NO HOOK ERRORS
-
+// src/pages/ListingDetails.jsx
 import React, {
   useEffect,
   useState,
@@ -9,6 +8,9 @@ import React, {
 import { useParams, Link } from "react-router-dom";
 import { getListingById } from "../firebase/listings.js";
 import SimilarHomes from "../components/SimilarHomes.jsx";
+import { generateBrochureForListing } from "../firebase/brochures.js";
+import { storage } from "../firebase/config.js";
+import { ref, getDownloadURL } from "firebase/storage";
 
 const FALLBACK_IMG = "/placeholder-listing.jpg";
 
@@ -21,6 +23,8 @@ export default function ListingDetails() {
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [zoom, setZoom] = useState(1);
 
+  const [brochureLoading, setBrochureLoading] = useState(false);
+
   const touchStartXRef = useRef(null);
   const touchEndXRef = useRef(null);
   const lastTapRef = useRef(0);
@@ -28,7 +32,7 @@ export default function ListingDetails() {
   const SWIPE_THRESHOLD = 50;
   const DOUBLE_TAP_THRESHOLD = 250;
 
-  // UNIVERSAL SHARE ---------------------------------
+  // UNIVERSAL SHARE
   const handleUniversalShare = async (url) => {
     try {
       const blob = await fetch(url).then((r) => r.blob());
@@ -61,7 +65,7 @@ export default function ListingDetails() {
     }
   };
 
-  // SAVE TO PHOTOS -----------------------------------
+  // SAVE TO PHOTOS
   const handleSaveToPhotos = async (url) => {
     try {
       const isMobile = /iPhone|iPad|iPod|Android/i.test(
@@ -95,12 +99,12 @@ export default function ListingDetails() {
     }
   };
 
-  // COPY IMAGE ---------------------------------------
+  // COPY IMAGE
   const handleCopyImage = async (url) => {
     try {
       const blob = await fetch(url).then((r) => r.blob());
 
-      if (window.ClipboardItem) {
+      if (window.ClipboardItem && navigator.clipboard?.write) {
         const item = new ClipboardItem({ [blob.type]: blob });
         await navigator.clipboard.write([item]);
         alert("Image copied to clipboard.");
@@ -111,10 +115,11 @@ export default function ListingDetails() {
       alert("Image link copied.");
     } catch (err) {
       console.error("Copy failed:", err);
+      alert("Unable to copy image.");
     }
   };
 
-  // LOAD LISTING -------------------------------------
+  // LOAD LISTING
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -123,6 +128,29 @@ export default function ListingDetails() {
       setLoading(false);
     })();
   }, [id]);
+
+  // MLS PDF BROCHURE
+  const handleDownloadBrochure = async () => {
+    if (!id) return;
+    try {
+      setBrochureLoading(true);
+      const result = await generateBrochureForListing(id);
+      const storagePath = result?.storagePath;
+
+      if (!storagePath) {
+        alert("Unable to generate brochure right now.");
+        return;
+      }
+
+      const url = await getDownloadURL(ref(storage, storagePath));
+      window.open(url, "_blank");
+    } catch (err) {
+      console.error("Brochure error:", err);
+      alert("Unable to generate brochure right now.");
+    } finally {
+      setBrochureLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -149,7 +177,7 @@ export default function ListingDetails() {
 
   const activeImage = images[lightboxIndex];
 
-  // LIGHTBOX HANDLERS --------------------------------
+  // LIGHTBOX HANDLERS
   const openLightbox = (index) => {
     setLightboxIndex(index);
     setZoom(1);
@@ -217,10 +245,6 @@ export default function ListingDetails() {
 
   const aiPricing = listing.aiPricing || null;
 
-  // --------------------------------------------------
-  // RENDERING
-  // --------------------------------------------------
-
   return (
     <div className="max-w-6xl mx-auto px-4 py-10">
       <Link to="/" className="text-blue-600 hover:underline">
@@ -228,10 +252,8 @@ export default function ListingDetails() {
       </Link>
 
       <div className="grid lg:grid-cols-3 gap-10 mt-6">
-
-        {/* MAIN IMAGE + THUMBNAILS */}
+        {/* MAIN IMAGES */}
         <div className="lg:col-span-2 space-y-4">
-
           <div
             className="h-72 md:h-96 rounded-xl overflow-hidden cursor-zoom-in"
             onClick={() => openLightbox(lightboxIndex)}
@@ -239,10 +261,11 @@ export default function ListingDetails() {
             <img
               src={activeImage}
               className="w-full h-full object-cover"
-              alt={listing.title}
+              alt={listing.title || "Listing image"}
             />
           </div>
 
+          {/* THUMBNAILS */}
           <div className="flex gap-2 overflow-x-auto">
             {images.map((img, idx) => (
               <button
@@ -257,69 +280,112 @@ export default function ListingDetails() {
                 <img
                   src={img}
                   className="w-full h-full object-cover"
-                  alt={"thumbnail " + idx}
+                  alt={`Thumbnail ${idx + 1}`}
                 />
               </button>
             ))}
           </div>
         </div>
 
-        {/* RIGHT PANEL - DETAILS */}
+        {/* DETAILS */}
         <div className="space-y-4">
           <h1 className="text-3xl font-bold">{listing.title}</h1>
           <p className="text-gray-600">{listing.address}</p>
 
-          <div className="bg-white shadow rounded-xl p-4">
-            <p className="text-2xl font-semibold text-blue-600">
-              ${listing.price?.toLocaleString()}
-            </p>
-            <p className="text-green-600">
-              ${listing.downPayment?.toLocaleString()} down
-            </p>
+          <div className="bg-white shadow rounded-xl p-4 space-y-3">
+            <div>
+              <p className="text-2xl font-semibold text-blue-600">
+                {listing.price
+                  ? `$${listing.price.toLocaleString()}`
+                  : "Price on request"}
+              </p>
+              <p className="text-green-600 text-sm">
+                {listing.downPayment
+                  ? `$${listing.downPayment.toLocaleString()} down`
+                  : ""}
+              </p>
+            </div>
+
+            {/* MLS BROCHURE BUTTON */}
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={handleDownloadBrochure}
+                disabled={brochureLoading}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 disabled:opacity-60"
+              >
+                {brochureLoading ? "Generating brochure…" : "⬇ MLS PDF Brochure"}
+              </button>
+            </div>
           </div>
 
-          {/* AI PRICING */}
+          {/* AI PRICING INSIGHT */}
           {aiPricing && (
-            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-sm text-slate-800">
-              <p className="font-semibold">AI Pricing Insight</p>
+            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-xs text-slate-800 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="font-semibold text-sm text-blue-900">
+                  AI Pricing Insight (Gemini Flash)
+                </p>
+                <span className="text-[11px] rounded-full bg-white px-2 py-0.5 border border-blue-200">
+                  Confidence: {aiPricing.confidence}
+                </span>
+              </div>
 
-              <div className="grid grid-cols-3 gap-4 mt-2">
+              <div className="grid sm:grid-cols-3 gap-3">
                 <div>
-                  <p className="text-xs text-slate-500">Suggested price</p>
-                  <p className="font-semibold">
-                    ${aiPricing.estimate?.toLocaleString()}
-                  </p>
+                  <div className="text-[11px] text-slate-500">
+                    Suggested price
+                  </div>
+                  <div className="font-semibold">
+                    $
+                    {aiPricing.estimate?.toLocaleString?.() ||
+                      aiPricing.estimate}
+                  </div>
                 </div>
-
                 <div>
-                  <p className="text-xs text-slate-500">Range</p>
-                  <p>
-                    ${aiPricing.low?.toLocaleString()} – $
-                    {aiPricing.high?.toLocaleString()}
-                  </p>
+                  <div className="text-[11px] text-slate-500">Range</div>
+                  <div>
+                    $
+                    {aiPricing.low?.toLocaleString?.() || aiPricing.low} – $
+                    {aiPricing.high?.toLocaleString?.() || aiPricing.high}
+                  </div>
                 </div>
-
                 <div>
-                  <p className="text-xs text-slate-500">Down payment</p>
-                  <p>${aiPricing.downPayment?.toLocaleString()}</p>
+                  <div className="text-[11px] text-slate-500">
+                    Suggested down payment
+                  </div>
+                  <div>
+                    $
+                    {aiPricing.downPayment?.toLocaleString?.() ||
+                      aiPricing.downPayment}
+                  </div>
                 </div>
               </div>
 
-              <p className="mt-2 text-xs text-slate-600">
+              <p className="text-[11px] text-slate-600">
                 {aiPricing.reasoning}
+              </p>
+
+              <p className="text-[10px] text-slate-400">
+                This is an AI-generated estimate for guidance only and not a
+                formal appraisal or financial advice.
               </p>
             </div>
           )}
 
-          {/* AI Full Description */}
+          {/* AI FULL DESCRIPTION (Gemini) */}
           {listing.aiFullDescription && (
-            <div className="bg-white shadow rounded-xl p-4 text-sm text-gray-700">
-              <h3 className="font-semibold mb-2">Property overview (AI-generated)</h3>
-              <p className="whitespace-pre-line">{listing.aiFullDescription}</p>
+            <div className="bg-white shadow rounded-xl p-4 text-sm text-gray-800">
+              <h3 className="font-semibold mb-2">
+                Property overview (AI-generated)
+              </h3>
+              <p className="whitespace-pre-line">
+                {listing.aiFullDescription}
+              </p>
             </div>
           )}
 
-          {/* Owner Notes */}
+          {/* OWNER DESCRIPTION */}
           {listing.description && (
             <div className="bg-white shadow rounded-xl p-4 text-sm text-gray-700">
               <h3 className="font-semibold mb-2">Owner notes</h3>
@@ -327,12 +393,13 @@ export default function ListingDetails() {
             </div>
           )}
 
-          {/* AI Tags */}
+          {/* AI TAGS */}
           {listing.aiTags && listing.aiTags.length > 0 && (
-            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-sm text-blue-900">
-              <h3 className="font-semibold">Smart highlights (AI tags)</h3>
-
-              <div className="flex flex-wrap gap-1 mt-2">
+            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-xs text-blue-900 space-y-2">
+              <div className="font-semibold text-sm">
+                Smart highlights (AI tags)
+              </div>
+              <div className="flex flex-wrap gap-1">
                 {listing.aiTags.slice(0, 12).map((tag) => (
                   <span
                     key={tag}
@@ -345,9 +412,9 @@ export default function ListingDetails() {
             </div>
           )}
 
-          {/* AI Caption */}
+          {/* AI CAPTION */}
           {listing.aiCaption && (
-            <div className="bg-white shadow rounded-xl p-4 text-sm text-gray-700">
+            <div className="bg-white shadow rounded-xl p-4 text-xs text-gray-700">
               <h3 className="font-semibold mb-1">AI quick caption</h3>
               <p>{listing.aiCaption}</p>
             </div>
@@ -356,7 +423,11 @@ export default function ListingDetails() {
       </div>
 
       {/* SIMILAR HOMES */}
-      <SimilarHomes listingId={id} tags={listing.aiTags} price={listing.price} />
+      <SimilarHomes
+        listingId={id}
+        tags={listing.aiTags}
+        price={listing.price}
+      />
 
       {/* LIGHTBOX */}
       {lightboxOpen && (
@@ -370,10 +441,9 @@ export default function ListingDetails() {
           >
             {/* TOP BAR */}
             <div className="flex justify-between mb-3 text-white text-sm">
-              <p>
+              <div>
                 {lightboxIndex + 1}/{images.length}
-              </p>
-
+              </div>
               <button
                 onClick={closeLightbox}
                 className="px-3 py-1 border border-white/40 rounded-full"
@@ -397,12 +467,13 @@ export default function ListingDetails() {
                 src={activeImage}
                 className="max-h-[80vh] max-w-full transition-transform"
                 style={{ transform: `scale(${zoom})` }}
+                alt={listing.title || "Listing image enlarged"}
               />
             </div>
 
             {/* CONTROLS */}
             <div className="flex justify-between items-center mt-3 text-white text-sm">
-
+              {/* NAV */}
               <div className="flex gap-2">
                 <button
                   onClick={prevImage}
@@ -418,6 +489,7 @@ export default function ListingDetails() {
                 </button>
               </div>
 
+              {/* SHARE / DOWNLOAD / SAVE / COPY */}
               <div className="flex gap-2">
                 <button
                   onClick={() => handleUniversalShare(activeImage)}
@@ -425,7 +497,6 @@ export default function ListingDetails() {
                 >
                   🔗 Share
                 </button>
-
                 <a
                   href={activeImage}
                   download={`hi-awto-image-${lightboxIndex + 1}.jpg`}
@@ -433,14 +504,12 @@ export default function ListingDetails() {
                 >
                   ⬇ Download
                 </a>
-
                 <button
                   onClick={() => handleSaveToPhotos(activeImage)}
                   className="px-3 py-1 border border-white/40 rounded-full hover:bg-white/10"
                 >
                   📱 Save
                 </button>
-
                 <button
                   onClick={() => handleCopyImage(activeImage)}
                   className="px-3 py-1 border border-white/40 rounded-full hover:bg-white/10"
@@ -449,6 +518,7 @@ export default function ListingDetails() {
                 </button>
               </div>
 
+              {/* ZOOM */}
               <div className="flex items-center gap-2">
                 <button
                   onClick={zoomOut}
@@ -456,7 +526,9 @@ export default function ListingDetails() {
                 >
                   −
                 </button>
-                <span className="opacity-70">{(zoom * 100).toFixed(0)}%</span>
+                <span className="opacity-70">
+                  {(zoom * 100).toFixed(0)}%
+                </span>
                 <button
                   onClick={zoomIn}
                   className="px-3 py-1 border border-white/40 rounded-full hover:bg-white/10"
@@ -471,7 +543,6 @@ export default function ListingDetails() {
                 </button>
               </div>
             </div>
-
           </div>
         </div>
       )}

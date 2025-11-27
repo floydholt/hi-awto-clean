@@ -1,49 +1,41 @@
 // functions/src/aiPricing.ts
 import { GoogleGenerativeAI } from "@google/generative-ai";
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-/**
- * Predict suggested listing price.
- */
+const client = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const model = client.getGenerativeModel({ model: "gemini-1.5-flash" });
 export async function generateAIPricing(input) {
     const prompt = `
-You are estimating a fair lease-to-own listing price.
+Estimate a realistic home price using the following:
+Title: ${input.title}
+Beds: ${input.beds}
+Baths: ${input.baths}
+Sqft: ${input.sqft}
+ZIP: ${input.zip}
+User-described price: ${input.price}
 
-Return JSON ONLY:
+Return JSON only:
 {
   "estimate": number,
   "low": number,
   "high": number,
   "downPayment": number,
-  "confidence": "high|medium|low",
-  "reasoning": "1 sentence explanation"
+  "confidence": "low|medium|high",
+  "reasoning": "text"
 }
-
-Input:
-${JSON.stringify(input, null, 2)}
 `;
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const result = await model.generateContent([{ text: prompt }]);
-    let raw = result.response.text().trim();
+    const result = await model.generateContent(prompt);
+    const text = result.response.text().trim();
     try {
-        const json = JSON.parse(raw);
-        return {
-            estimate: Number(json.estimate ?? 0),
-            low: Number(json.low ?? 0),
-            high: Number(json.high ?? 0),
-            downPayment: Number(json.downPayment ?? 0),
-            confidence: json.confidence || "medium",
-            reasoning: json.reasoning || "",
-        };
+        return JSON.parse(text);
     }
     catch (e) {
-        console.error("Pricing parse error:", raw, e);
+        console.error("Pricing JSON parse failed:", text);
         return {
-            estimate: 0,
-            low: 0,
-            high: 0,
-            downPayment: 0,
+            estimate: input.price,
+            low: input.price * 0.9,
+            high: input.price * 1.1,
+            downPayment: Math.round(input.price * 0.03),
             confidence: "low",
-            reasoning: "AI fallback estimate.",
+            reasoning: "Fallback estimate.",
         };
     }
 }

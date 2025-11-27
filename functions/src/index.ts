@@ -1,29 +1,40 @@
+import { onDocumentWritten } from "firebase-functions/v2/firestore";
+import { onCall } from "firebase-functions/v2/https";
+import { generateListingBrochure } from "./brochure.js";
+
 /**
- * index.ts
- * Firebase Functions entrypoint
+ * Firestore trigger placeholder for future AI processing.
+ * Currently just logs; you can wire your AI modules in here.
  */
-
-import { onDocumentWritten, type FirestoreEvent } from "firebase-functions/v2/firestore";
-
 export const processListing = onDocumentWritten(
   "listings/{id}",
-  async (event: FirestoreEvent<any>) => {
-    const before = event.data?.before?.data();
+  async (event) => {
     const after = event.data?.after?.data();
-    const listingId = event.params.id;
-
-    // Skip deletes
     if (!after) return;
 
-    console.log("Processing listing:", listingId);
+    console.log("Listing written: ", event.params.id, after.title);
+    // TODO: call AI vision / pricing / fraud here if desired.
+  }
+);
 
-    // TODO: Call AI modules here (Vision, Pricing, Fraud, Description)
-    // Example:
-    // const vision = await generateAITags(after.imageUrls || []);
-    // await updateDoc(doc(db, "listings", listingId), {
-    //   aiTags: vision.tags,
-    //   aiCaption: vision.caption,
-    //   aiUpdatedAt: new Date().toISOString(),
-    // });
+/**
+ * Callable function to generate an MLS-style PDF brochure
+ * for a given listing ID and store it in Cloud Storage.
+ *
+ * Client calls this with: { listingId }
+ * and receives: { storagePath }
+ */
+export const createListingBrochure = onCall(
+  { region: "us-central1", timeoutSeconds: 300 },
+  async (request) => {
+    const data = (request.data || {}) as { listingId?: string };
+    const listingId = data.listingId;
+
+    if (!listingId || typeof listingId !== "string") {
+      throw new Error("listingId is required");
+    }
+
+    const storagePath = await generateListingBrochure(listingId);
+    return { storagePath };
   }
 );

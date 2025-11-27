@@ -16,8 +16,8 @@ async function imageUrlToPart(url) {
     return {
         inlineData: {
             data: base64,
-            mimeType: blob.type || "image/jpeg"
-        }
+            mimeType: blob.type || "image/jpeg",
+        },
     };
 }
 /**
@@ -25,11 +25,11 @@ async function imageUrlToPart(url) {
  */
 export async function generateAITags(imageUrls) {
     try {
-        if (!imageUrls.length) {
-            return { tags: [], caption: null };
+        if (imageUrls.length === 0) {
+            return { tags: [], caption: "" };
         }
         // Convert all images → inline parts
-        const imageParts = await Promise.all(imageUrls.map((url) => imageUrlToPart(url)));
+        const imageParts = await Promise.all(imageUrls.map(imageUrlToPart));
         const prompt = "Extract 12–18 short keywords describing this property (no spaces, hyphens only). " +
             "Then generate a 1-sentence natural-language caption (max 18 words). " +
             "Return JSON with { tags: string[], caption: string }.";
@@ -37,27 +37,27 @@ export async function generateAITags(imageUrls) {
             contents: [
                 {
                     role: "user",
-                    parts: [{ text: prompt }, ...imageParts]
-                }
-            ]
+                    parts: [{ text: prompt }, ...imageParts],
+                },
+            ],
         });
-        const text = result.response.text();
+        const text = result.response.text().trim();
         let parsed;
         try {
             parsed = JSON.parse(text);
         }
         catch (err) {
             console.error("AI Vision: Could not parse JSON:", text);
-            return { tags: [], caption: null };
+            return { tags: [], caption: "" };
         }
         return {
             tags: Array.isArray(parsed.tags) ? parsed.tags : [],
-            caption: parsed.caption ?? null
+            caption: typeof parsed.caption === "string" ? parsed.caption : "",
         };
     }
     catch (err) {
         console.error("AI Vision Error:", err);
-        return { tags: [], caption: null };
+        return { tags: [], caption: "" };
     }
 }
 //# sourceMappingURL=aiVision.js.map

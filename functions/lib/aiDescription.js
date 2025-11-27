@@ -1,29 +1,26 @@
 // functions/src/aiDescription.ts
 import { GoogleGenerativeAI } from "@google/generative-ai";
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-/**
- * Generate a polished real-estate listing description.
- */
+const client = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const model = client.getGenerativeModel({ model: "gemini-1.5-flash" });
 export async function generateAIDescription(input) {
-    const { title, description, tags } = input;
     const prompt = `
-Create a professional real-estate property description.
+Generate a professional real estate property description.
+Use MLS tone.
+Use 2–3 paragraphs.
+Avoid repeating numbers excessively.
+Do NOT invent features not provided.
 
-Return ONLY the description text (no JSON).
-
-Details:
-Title: ${title}
-Owner Description: ${description}
-Tags: ${tags.join(", ")}
-
-Tone:
-- Friendly
-- Clear
-- Excited but realistic
-- 140–220 words
+Inputs:
+Title: ${input.title}
+Address: ${input.address}
+Beds: ${input.beds}
+Baths: ${input.baths}
+Sqft: ${input.sqft}
+User Description: ${input.description}
+AI Tags: ${input.aiTags.join(", ")}
 `;
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const result = await model.generateContent([{ text: prompt }]);
-    return result.response.text().trim();
+    const result = await model.generateContent(prompt);
+    const text = result.response.text().trim();
+    return { fullDescription: text };
 }
 //# sourceMappingURL=aiDescription.js.map

@@ -2,58 +2,47 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { FraudAssessment } from "./types.js";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const client = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const model = client.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-/**
- * Analyze a listing for fraud or suspicious content.
- */
 export async function runFraudCheck(
-  listing: Record<string, any>
+  listing: any
 ): Promise<FraudAssessment> {
+
   const prompt = `
-Fraud detection for real-estate marketplace.
+Analyze fraud risk for this real estate listing.
+Return JSON ONLY.
+Consider:
+- Price too low or unrealistic
+- Description mismatches
+- Scam phrases
+- Missing photos
+- Low-quality AI images
+- Suspicious patterns
 
-Return JSON ONLY:
-{
-  "score": 1-10,
-  "explanation": "1 short sentence"
-}
-
-High risk signs:
-- Price too low
-- Reused images
-- Mismatched address
-- Very short or nonsense description
-- Missing required fields
-- Overly generic photos
-
-Listing:
-${JSON.stringify(listing, null, 2)}
+Listing data:
+${JSON.stringify(listing)}
 `;
 
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-  const result = await model.generateContent([{ text: prompt }]);
-
-  const raw = result.response.text();
+  const result = await model.generateContent(prompt);
+  const text = result.response.text().trim();
 
   try {
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(text);
+    return {
+      score: parsed.score ?? 0,
+      riskLevel: parsed.riskLevel ?? "low",
+      flags: parsed.flags ?? [],
+      explanation: parsed.explanation ?? "No explanation",
+    };
+  } catch (e) {
+    console.error("Fraud JSON parse failed:", text);
 
     return {
-      score:
-        Number(parsed.score) >= 1 && Number(parsed.score) <= 10
-          ? Number(parsed.score)
-          : 5,
-      explanation:
-        typeof parsed.explanation === "string"
-          ? parsed.explanation
-          : "AI fallback reasoning.",
-    };
-  } catch (err) {
-    console.error("Fraud parse failed:", err, raw);
-    return {
-      score: 5,
-      explanation: "AI fallback risk estimate.",
+      score: 20,
+      riskLevel: "low",
+      flags: ["json_parse_failed"],
+      explanation: "AI fallback fraud estimate.",
     };
   }
 }
