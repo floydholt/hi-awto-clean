@@ -1,34 +1,47 @@
 // src/utils/exportCsv.js
 
-export function exportCsv(filename, rows) {
-  if (!rows || rows.length === 0) {
-    console.warn("No CSV data");
-    return;
-  }
+/**
+ * Convert an array of objects into CSV text.
+ */
+function toCsv(rows) {
+  if (!rows || rows.length === 0) return "";
 
-  const escape = (val) => {
-    if (val === null || val === undefined) return "";
-    const s = String(val);
-    if (s.includes(",") || s.includes('"')) {
-      return `"${s.replace(/"/g, '""')}"`;
+  const headers = Object.keys(rows[0]);
+
+  const escape = (value) => {
+    if (value == null) return "";
+    const str = String(value);
+    // Escape quotes by doubling them
+    if (str.includes('"') || str.includes(",") || str.includes("\n")) {
+      return `"${str.replace(/"/g, '""')}"`;
     }
-    return s;
+    return str;
   };
 
-  const csvContent = [
-    Object.keys(rows[0]).join(","), // header
-    ...rows.map((r) => Object.values(r).map(escape).join(",")),
+  const csv = [
+    headers.join(","), // header row
+    ...rows.map((row) => headers.map((h) => escape(row[h])).join(",")),
   ].join("\n");
 
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
+  return csv;
+}
 
+/**
+ * Trigger browser download of CSV file.
+ */
+export function exportCsv(filename, rows) {
+  const csv = toCsv(rows);
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+
+  // Create a temporary link
   const link = document.createElement("a");
-  link.href = url;
-  link.setAttribute("download", filename);
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+
   document.body.appendChild(link);
   link.click();
-
   document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+
+  URL.revokeObjectURL(link.href);
 }
