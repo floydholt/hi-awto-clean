@@ -1,173 +1,185 @@
-import React, { useState, useEffect, useRef } from "react";
+// src/components/Navbar.jsx
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../firebase/AuthContext.jsx";
-import useUnreadMessages from "../hooks/useUnreadMessages";
+import { useAuth } from "../context/AuthContext";
+import { db } from "../firebase/firestore";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
 
 export default function Navbar() {
-  const { user, role } = useAuth();
   const navigate = useNavigate();
-
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [avatarMenu, setAvatarMenu] = useState(false);
-  const [shrink, setShrink] = useState(false);
-
-  const avatarRef = useRef(null);
-  const avatarMenuRef = useRef(null);
-
-  const unread = useUnreadMessages(user?.uid); // 🔔 unread messages
-
+  const { user, role, logout } = useAuth();
   const isAdmin = role === "admin";
 
-  const handleLogout = async () => {
-    const { logout } = await import("../firebase/auth.js");
-    await logout();
-    navigate("/login");
-  };
+  const [unread, setUnread] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(false);
 
-  // Shrink effect
-  useEffect(() => {
-    const onScroll = () => setShrink(window.scrollY > 10);
-    window.addEventListener("scroll", onScroll);
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  // Close avatar menu when clicking outside
-  useEffect(() => {
-    function closeMenu(e) {
-      if (
-        avatarMenuRef.current &&
-        !avatarMenuRef.current.contains(e.target) &&
-        !avatarRef.current.contains(e.target)
-      ) {
-        setAvatarMenu(false);
-      }
-    }
-    document.addEventListener("mousedown", closeMenu);
-    return () => document.removeEventListener("mousedown", closeMenu);
-  }, []);
-
-  // Avatar fallback initials
+  // Compute initials
   const initials = user?.displayName
     ? user.displayName
         .split(" ")
         .map((n) => n[0])
         .join("")
-        .slice(0, 2)
-    : user?.email?.[0]?.toUpperCase();
+        .toUpperCase()
+    : "U";
+
+  // Get unread message count
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const ref = collection(db, "threads");
+    const q = query(ref, where("participants", "array-contains", user.uid));
+
+    const unsub = onSnapshot(q, (snap) => {
+      let count = 0;
+      snap.forEach((doc) => {
+        const data = doc.data();
+        const unreadMap = data.unreadCount || {};
+        if (unreadMap[user.uid] > 0) count += unreadMap[user.uid];
+      });
+      setUnread(count);
+    });
+
+    return () => unsub();
+  }, [user?.uid]);
+
+  // Logout handler
+  const handleLogout = async () => {
+    await logout();
+    setProfileOpen(false);
+    setMenuOpen(false);
+    navigate("/");
+  };
 
   return (
-    <>
-      {/* NAVBAR */}
-      <nav
-        className={`
-          fixed top-0 w-full z-50 bg-white/80 backdrop-blur border-b border-gray-200
-          transition-all duration-300
-          ${shrink ? "py-2 shadow-sm" : "py-4"}
-        `}
-      >
-        <div className="max-w-7xl mx-auto px-4 flex items-center justify-between">
+    <header className="sticky top-0 z-50 bg-white shadow-sm">
+      <nav className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+        
+        {/* LOGO */}
+        <Link to="/" className="flex items-center gap-2">
+          <img
+            src="/logo.png"
+            alt="HI AWTO logo"
+            className="h-10 w-auto"
+          />
+        </Link>
 
-          {/* LOGO */}
-          <Link to="/" className="flex items-center">
-            <img
-              src="/logo-nav.png"
-              className={`transition-all duration-300 ${shrink ? "h-6" : "h-8"}`}
-              alt="HI AWTO"
-            />
-          </Link>
+        {/* DESKTOP LINKS */}
+        <div className="hidden md:flex items-center gap-6 text-sm">
 
-          {/* DESKTOP */}
-          <div className="hidden md:flex items-center gap-8 text-slate-800 font-medium">
-            <Link to="/" className="hover:text-blue-600">Home</Link>
-            <Link to="/how-it-works" className="hover:text-blue-600">How It Works</Link>
+          <Link to="/" className="hover:text-blue-600">Home</Link>
+          <Link to="/how-it-works" className="hover:text-blue-600">How It Works</Link>
 
-            {!user && (
-              <>
-                <Link to="/login" className="hover:text-blue-600">Login</Link>
-                <Link to="/register" className="hover:text-blue-600">Register</Link>
-              </>
-            )}
+          {/* ADMIN MENU */}
+          {isAdmin && (
+            <div className="relative">
+              <button
+                className="px-3 py-2 text-sm font-medium hover:text-blue-600"
+                onClick={() => setAdminOpen(!adminOpen)}
+              >
+                Admin ▼
+              </button>
 
-            {user && (
-              <>
-                <Link to="/my-listings" className="hover:text-blue-600">My Listings</Link>
+              {adminOpen && (
+                <div className="absolute right-0 mt-2 bg-white shadow-xl rounded-lg border w-52 z-50">
+                  <Link
+                    to="/admin/listings"
+                    className="block px-4 py-2 text-sm hover:bg-slate-100"
+                    onClick={() => setAdminOpen(false)}
+                  >
+                    Moderate Listings
+                  </Link>
 
-                {/* 🔔 Notification Bell */}
-                <Link to="/messages" className="relative">
+                  <Link
+                    to="/admin/fraud"
+                    className="block px-4 py-2 text-sm hover:bg-slate-100"
+                    onClick={() => setAdminOpen(false)}
+                  >
+                    Fraud Review
+                  </Link>
+
+                  <Link
+                    to="/admin/users"
+                    className="block px-4 py-2 text-sm hover:bg-slate-100"
+                    onClick={() => setAdminOpen(false)}
+                  >
+                    Manage Users
+                  </Link>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* PROFILE */}
+          {!user ? (
+            <>
+              <Link to="/login" className="hover:text-blue-600">Login</Link>
+              <Link to="/register" className="hover:text-blue-600">Register</Link>
+            </>
+          ) : (
+            <div className="relative">
+              <button
+                className="flex items-center gap-2"
+                onClick={() => setProfileOpen(!profileOpen)}
+              >
+                <div className="relative">
                   <span className="text-2xl">🔔</span>
-
                   {unread > 0 && (
-                    <span className="
-                      absolute -top-1 -right-2 bg-red-600 text-white 
-                      text-[10px] px-1.5 py-[1px] rounded-full font-bold
-                    ">
+                    <span className="absolute -top-1 -right-2 bg-red-600 text-white text-[10px] px-1.5 rounded-full">
                       {unread}
                     </span>
                   )}
-                </Link>
+                </div>
 
-                {/* Avatar */}
-                <div className="relative">
-                  <button
-                    ref={avatarRef}
-                    onClick={() => setAvatarMenu((v) => !v)}
-                    className="h-9 w-9 rounded-full bg-gray-200 border overflow-hidden shadow-sm hover:shadow-md"
-                  >
-                    {user.photoURL ? (
-                      <img
-                        src={user.photoURL}
-                        alt="avatar"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center font-bold text-xs text-slate-700">
-                        {initials}
-                      </div>
-                    )}
-                  </button>
-
-                  {/* Avatar dropdown */}
-                  {avatarMenu && (
-                    <div
-                      ref={avatarMenuRef}
-                      className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border py-2 text-sm animate-fadeIn"
-                    >
-                      <Link to="/profile" className="block px-4 py-2 hover:bg-slate-50">Profile</Link>
-                      <Link to="/messages" className="block px-4 py-2 hover:bg-slate-50">
-                        Messages {unread > 0 && `(${unread})`}
-                      </Link>
-                      <Link to="/my-listings" className="block px-4 py-2 hover:bg-slate-50">My Listings</Link>
-
-                      {isAdmin && (
-                        <Link
-                          to="/admin/messages"
-                          className="block px-4 py-2 hover:bg-slate-50 text-green-600"
-                        >
-                          Admin Panel
-                        </Link>
-                      )}
-
-                      <button
-                        onClick={handleLogout}
-                        className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-50"
-                      >
-                        Logout
-                      </button>
+                <div className="h-8 w-8 rounded-full border overflow-hidden bg-gray-200">
+                  {user.photoURL ? (
+                    <img src={user.photoURL} className="h-full w-full object-cover" alt="" />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center font-semibold text-slate-700">
+                      {initials}
                     </div>
                   )}
                 </div>
-              </>
-            )}
-          </div>
+              </button>
 
-          {/* MOBILE BUTTON */}
-          <button
-            className="md:hidden text-3xl"
-            onClick={() => setMenuOpen(true)}
-          >
-            ☰
-          </button>
+              {profileOpen && (
+                <div className="absolute right-0 mt-2 bg-white shadow-xl rounded-lg border w-48 z-50">
+                  <Link
+                    to="/dashboard"
+                    className="block px-4 py-2 text-sm hover:bg-slate-100"
+                    onClick={() => setProfileOpen(false)}
+                  >
+                    Dashboard
+                  </Link>
+
+                  <Link
+                    to="/messages"
+                    className="block px-4 py-2 text-sm hover:bg-slate-100"
+                    onClick={() => setProfileOpen(false)}
+                  >
+                    Messages
+                  </Link>
+
+                  <button
+                    onClick={handleLogout}
+                    className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-50"
+                  >
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
+
+        {/* MOBILE BUTTON */}
+        <button
+          className="md:hidden text-3xl"
+          onClick={() => setMenuOpen(true)}
+        >
+          ☰
+        </button>
       </nav>
 
       {/* OVERLAY */}
@@ -180,12 +192,15 @@ export default function Navbar() {
 
       {/* MOBILE SLIDE DOWN MENU */}
       <div
-        className={`md:hidden fixed top-0 left-0 w-full bg-white shadow-lg z-50
-          transition-transform duration-300 ${menuOpen ? "translate-y-0" : "-translate-y-full"}`}
+        className={`md:hidden fixed top-0 left-0 w-full bg-white shadow-lg z-50 
+          transition-transform duration-300 
+          ${menuOpen ? "translate-y-0" : "-translate-y-full"}`}
       >
         <div className="flex items-center justify-between px-4 py-4 border-b">
-          <img src="/logo-nav.png" className="h-8" />
-          <button className="text-3xl" onClick={() => setMenuOpen(false)}>✕</button>
+          <img src="/logo.png" alt="HI AWTO logo" className="h-10" />
+          <button className="text-3xl" onClick={() => setMenuOpen(false)}>
+            ✕
+          </button>
         </div>
 
         <div className="flex flex-col px-6 py-4 space-y-4 text-lg">
@@ -199,57 +214,48 @@ export default function Navbar() {
             </>
           )}
 
-          {user && (
+          {/* MOBILE ADMIN MENU */}
+          {isAdmin && (
             <>
-              <div className="flex items-center gap-3 border-b pb-3">
-                <div className="h-12 w-12 rounded-full border overflow-hidden bg-gray-200">
-                  {user.photoURL ? (
-                    <img src={user.photoURL} className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="h-full w-full flex items-center justify-center font-semibold text-slate-700">
-                      {initials}
-                    </div>
-                  )}
-                </div>
+              <hr className="my-2" />
+              <span className="text-xs text-slate-500 uppercase">Admin Tools</span>
 
-                <div>
-                  <p className="font-semibold">{user.displayName || "User"}</p>
-                  <p className="text-sm text-slate-500">{user.email}</p>
-                </div>
-
-                {/* 🔔 Bell on mobile */}
-                <Link to="/messages" className="relative ml-auto mr-2">
-                  <span className="text-2xl">🔔</span>
-                  {unread > 0 && (
-                    <span className="absolute -top-1 -right-2 bg-red-600 text-white text-[10px] px-1.5 rounded-full">
-                      {unread}
-                    </span>
-                  )}
-                </Link>
-              </div>
-
-              <Link to="/profile" onClick={() => setMenuOpen(false)}>Profile</Link>
-              <Link to="/my-listings" onClick={() => setMenuOpen(false)}>My Listings</Link>
-              <Link to="/messages" onClick={() => setMenuOpen(false)}>
-                Messages {unread > 0 && `(${unread})`}
+              <Link
+                to="/admin/listings"
+                onClick={() => setMenuOpen(false)}
+              >
+                Moderate Listings
               </Link>
 
-              {isAdmin && (
-                <Link
-                  to="/admin/messages"
-                  className="text-green-600"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  Admin Panel
-                </Link>
-              )}
+              <Link
+                to="/admin/fraud"
+                onClick={() => setMenuOpen(false)}
+              >
+                Fraud Review
+              </Link>
+
+              <Link
+                to="/admin/users"
+                onClick={() => setMenuOpen(false)}
+              >
+                Manage Users
+              </Link>
+            </>
+          )}
+
+          {user && (
+            <>
+              <hr className="my-2" />
+              <Link to="/dashboard" onClick={() => setMenuOpen(false)}>
+                Dashboard
+              </Link>
+              <Link to="/messages" onClick={() => setMenuOpen(false)}>
+                Messages
+              </Link>
 
               <button
-                onClick={() => {
-                  handleLogout();
-                  setMenuOpen(false);
-                }}
-                className="text-red-600 pt-2 text-left"
+                onClick={handleLogout}
+                className="text-red-600 text-left mt-2"
               >
                 Logout
               </button>
@@ -257,6 +263,6 @@ export default function Navbar() {
           )}
         </div>
       </div>
-    </>
+    </header>
   );
 }

@@ -1,48 +1,44 @@
 // src/utils/encryptPdf.js
-import { PDFDocument } from "pdf-lib";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 
-
 /**
- * Encrypt a PDF using AES-256 with a user password and optional owner password.
- *
- * @param {Uint8Array} pdfBytes - Raw PDF bytes (from jsPDF)
- * @param {Object} options
- * @param {string} options.userPassword - Password required to open the PDF
- * @param {string} [options.ownerPassword] - Owner password (allows changes)
- * @returns {Promise<Uint8Array>}
+ * Encrypt an existing PDF using pdf-lib.
+ * Returns Uint8Array (encrypted binary).
  */
 export async function encryptPdf(pdfBytes, { userPassword, ownerPassword }) {
-  // Load the pdf
+  // Load PDF
   const pdfDoc = await PDFDocument.load(pdfBytes);
 
-  // Encrypt using AES-256
-  encrypt(pdfDoc, {
-    userPassword: userPassword || "",
-    ownerPassword: ownerPassword || userPassword || "",
-    algorithm: "AES-256",
+  // Encrypt PDF with user & owner password
+  pdfDoc.encrypt({
+    userPassword: userPassword,
+    ownerPassword: ownerPassword,
     permissions: {
-      printing: "none",
+      printing: "highResolution",
       modifying: false,
       copying: false,
       annotating: false,
+      fillingForms: false,
+      contentAccessibility: false,
+      documentAssembly: false,
     },
   });
 
+  // Save encrypted PDF
   const encryptedBytes = await pdfDoc.save();
   return encryptedBytes;
 }
 
 /**
- * Trigger download in browser.
+ * Trigger browser download of encrypted PDF file.
  */
-export function downloadEncryptedPdf(fileName, encryptedBytes) {
-  const blob = new Blob([encryptedBytes], { type: "application/pdf" });
+export function downloadEncryptedPdf(filename, uint8Array) {
+  const blob = new Blob([uint8Array], { type: "application/pdf" });
   const url = URL.createObjectURL(blob);
 
   const a = document.createElement("a");
   a.href = url;
-  a.download = fileName;
+  a.download = filename;
   a.click();
 
   URL.revokeObjectURL(url);

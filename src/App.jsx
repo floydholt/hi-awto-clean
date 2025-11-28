@@ -28,6 +28,10 @@ import SearchListings from "./pages/SearchListings.jsx";
 import About from "./pages/About.jsx";
 
 import AdminFraud from "./pages/AdminFraud.jsx";
+import AdminUsers from "./pages/AdminUsers.jsx";
+
+
+
 
 function App() {
   return (
@@ -40,6 +44,7 @@ function App() {
         <Route path="/listing/:id" element={<ListingDetails />} />
         <Route path="/search" element={<SearchListings />} />
         <Route path="/how-it-works" element={<About />} />
+        <Route path="/admin/users" element={<AdminUsers />} />
 
         {/* Auth */}
         <Route path="/login" element={<Login />} />

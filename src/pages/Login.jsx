@@ -45,7 +45,8 @@ export default function Login() {
 
   return (
     <div className="auth-wrapper fade-in">
-      <img src="/logo.png" className="auth-logo" />
+      <img src="/logo.png" alt="HI AWTO logo" />
+
 
       <h1 className="auth-title">Welcome Back</h1>
       <p className="auth-subtitle">Log in to continue your journey</p>

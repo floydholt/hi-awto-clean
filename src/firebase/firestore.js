@@ -42,3 +42,5 @@ export {
   query,
   where,
 };
+
+export { db };
