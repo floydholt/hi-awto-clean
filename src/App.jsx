@@ -5,33 +5,27 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 // Components
 import Navbar from "./components/Navbar.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
+// NOTE: RequireAdmin component is imported but will be replaced by ProtectedRoute adminOnly prop for consistency
+import RequireAdmin from "./components/RequireAdmin.jsx"; 
 
 // Pages
 import Home from "./pages/Home.jsx";
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
 import Profile from "./pages/Profile.jsx";
-
 import CreateListing from "./pages/CreateListing.jsx";
 import MyListings from "./pages/MyListings.jsx";
 import ListingDetails from "./pages/ListingDetails.jsx";
-
 import MyMessages from "./pages/MyMessages.jsx";
 import ViewThread from "./pages/ViewThread.jsx";
 import MessagingCenterAdmin from "./pages/MessagingCenterAdmin.jsx";
-
 import AdminDashboard from "./pages/AdminDashboard.jsx";
 import AdminListings from "./pages/AdminListings.jsx";
 import AdminUsers from "./pages/AdminUsers.jsx";
-
 import SearchListings from "./pages/SearchListings.jsx";
 import About from "./pages/About.jsx";
-
 import AdminFraud from "./pages/AdminFraud.jsx";
-
-
-
-
+import Forbidden from "./pages/Forbidden.jsx";
 
 
 function App() {
@@ -40,20 +34,17 @@ function App() {
       <Navbar />
 
       <Routes>
-        {/* Public */}
+        {/* === PUBLIC ROUTES === */}
         <Route path="/" element={<Home />} />
         <Route path="/listing/:id" element={<ListingDetails />} />
         <Route path="/search" element={<SearchListings />} />
         <Route path="/how-it-works" element={<About />} />
-        <Route path="/admin/users" element={<AdminUsers />} />
-        <Route path="/admin/fraud" element={<AdminFraud />} />
-
-
-        {/* Auth */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forbidden" element={<Forbidden />} />
 
-        {/* User Protected */}
+
+        {/* === USER PROTECTED ROUTES (Requires Login) === */}
         <Route
           path="/profile"
           element={
@@ -62,9 +53,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
-        <Route path="/admin/fraud" element={<AdminFraud />} />
-
         <Route
           path="/create-listing"
           element={
@@ -73,7 +61,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/my-listings"
           element={
@@ -83,7 +70,7 @@ function App() {
           }
         />
 
-        {/* Messaging */}
+        {/* === MESSAGING ROUTES (Requires Login) === */}
         <Route
           path="/messages"
           element={
@@ -92,7 +79,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/thread/:threadId"
           element={
@@ -102,7 +88,7 @@ function App() {
           }
         />
 
-        {/* Admin Only */}
+        {/* === ADMIN PROTECTED ROUTES (Requires Admin Role) === */}
         <Route
           path="/admin"
           element={
@@ -111,7 +97,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/admin/messages"
           element={
@@ -120,7 +105,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/admin/listings"
           element={
@@ -129,12 +113,19 @@ function App() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/admin/users"
           element={
             <ProtectedRoute adminOnly>
               <AdminUsers />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/fraud"
+          element={
+            <ProtectedRoute adminOnly>
+              <AdminFraud />
             </ProtectedRoute>
           }
         />

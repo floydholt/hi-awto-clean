@@ -3,6 +3,8 @@ import React, { useEffect, useState } from "react";
 import { collection, getDocs, query, orderBy, limit } from "firebase/firestore";
 import { Link } from "react-router-dom";
 import { db } from "../firebase/firestore.js";
+import { useAuth } from "../firebase/AuthContext.jsx";
+
 
 export default function AdminUsers() {
   const [users, setUsers] = useState([]);

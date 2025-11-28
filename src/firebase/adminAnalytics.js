@@ -1,8 +1,6 @@
 // src/firebase/adminAnalytics.js
 import {
-  collection,
   doc,
-  getDocs,
   getDoc,
   onSnapshot,
   query,
@@ -10,8 +8,11 @@ import {
   limit,
   where,
 } from "firebase/firestore";
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "./config.js";
 
-import { db } from "./firestore.js";
+
+
 
 /* -----------------------------------------------------------
    REAL-TIME LISTING COUNTS
@@ -110,7 +111,7 @@ export async function loadListingsTimeSeries(days = 7) {
    TIME-SERIES: FRAUD RISK TREND
    (🔥 YOU WERE MISSING THIS)
 ----------------------------------------------------------- */
-export async function loadFraudTrendSeries(days = 7) {
+export async function loadFraudTrends(days = 7) {
   const since = Date.now() - days * 24 * 3600 * 1000;
 
   const qRef = query(

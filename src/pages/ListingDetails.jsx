@@ -11,7 +11,6 @@ import { getListingById } from "../firebase/listings.js";
 import { generateBrochureForListing } from "../firebase/brochures.js";
 import { storage } from "../firebase/config.js";
 import { ref, getDownloadURL } from "firebase/storage";
-import { useAuth } from "../firebase/AuthContext";
 // ✅ fixed import
 
 // ✅ Lazy load heavy components
