@@ -1,7 +1,7 @@
 // src/components/Navbar.jsx
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../firebase/AuthContext";
 import { db } from "../firebase/firestore";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 

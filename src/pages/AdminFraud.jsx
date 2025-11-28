@@ -1,134 +1,167 @@
 // src/pages/AdminFraud.jsx
 import React, { useEffect, useState } from "react";
-import {
-  listenToFraudListings,
-  markListingSafe,
-  flagAsFraud,
-} from "../firebase/adminFraud.js";
 import { Link } from "react-router-dom";
+import {
+  loadFraudEvents,
+  loadListingsForAdmin,
+} from "../firebase/adminAnalytics.js";
 
 export default function AdminFraud() {
-  const [items, setItems] = useState([]);
+  const [fraudEvents, setFraudEvents] = useState([]);
+  const [listings, setListings] = useState([]);
+  const [filter, setFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsub = listenToFraudListings(setItems);
-    return () => unsub();
+    Promise.all([loadFraudEvents(90), loadListingsForAdmin()])
+      .then(([events, listingDocs]) => {
+        setFraudEvents(events || []);
+        setListings(listingDocs || []);
+      })
+      .finally(() => setLoading(false));
   }, []);
+
+  const listingMap = listings.reduce((acc, l) => {
+    acc[l.id] = l;
+    return acc;
+  }, {});
+
+  const filtered = fraudEvents.filter((e) => {
+    if (filter === "all") return true;
+    return e.riskLevel === filter;
+  });
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-10">
-      <h1 className="text-3xl font-bold mb-4">AI Fraud Review</h1>
-      <p className="text-gray-600 mb-8">
-        Review suspicious listings detected by the AI pipeline.
-      </p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">Fraud Review</h1>
+          <p className="text-slate-500 text-sm mt-1">
+            AI-detected anomalies, suspicious patterns, and risk scores.
+          </p>
+        </div>
 
-      <div className="space-y-4">
-        {items.map((item) => (
-          <FraudCard key={item.id} listing={item} />
+        <Link
+          to="/admin"
+          className="px-4 py-2 rounded-lg bg-slate-700 text-white hover:bg-slate-800"
+        >
+          ← Back to Dashboard
+        </Link>
+      </div>
+
+      {/* FILTERS */}
+      <div className="flex gap-3 mb-6">
+        {["all", "high", "medium", "low"].map((f) => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className={`px-3 py-1.5 rounded-full text-sm border ${
+              filter === f
+                ? "bg-blue-600 text-white border-blue-600"
+                : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
+            }`}
+          >
+            {f === "all" ? "All Risks" : f.charAt(0).toUpperCase() + f.slice(1)}
+          </button>
         ))}
       </div>
-    </div>
-  );
-}
 
-function FraudCard({ listing }) {
-  const {
-    id,
-    title,
-    imageUrls,
-    fraudScore,
-    fraudReasons = [],
-    fraudSummary = "",
-    ownerId,
-    fraudStatus = "flagged"
-  } = listing;
+      {/* TABLE */}
+      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+        <table className="min-w-full text-sm">
+          <thead className="bg-slate-50 border-b border-slate-200">
+            <tr className="text-left text-slate-600">
+              <th className="py-3 px-4">Listing</th>
+              <th className="py-3 px-4">Score</th>
+              <th className="py-3 px-4">Risk</th>
+              <th className="py-3 px-4">Flags</th>
+              <th className="py-3 px-4">AI Explanation</th>
+              <th className="py-3 px-4">Actions</th>
+            </tr>
+          </thead>
 
-  const thumbnail =
-    (imageUrls && imageUrls[0]) || "/placeholder-listing.jpg";
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan="6" className="text-center py-6 text-slate-400">
+                  Loading…
+                </td>
+              </tr>
+            ) : filtered.length === 0 ? (
+              <tr>
+                <td colSpan="6" className="text-center py-6 text-slate-400">
+                  No fraud events found.
+                </td>
+              </tr>
+            ) : (
+              filtered.map((e, idx) => {
+                const l = listingMap[e.listingId] || {};
+                return (
+                  <tr
+                    key={idx}
+                    className="border-b border-slate-100 hover:bg-slate-50"
+                  >
+                    {/* LISTING */}
+                    <td className="py-3 px-4">
+              <Link
+                to={`/listing/${e.listingId}`}
+                className="font-semibold text-blue-600 hover:underline"
+              >
+                {l.title || "Unknown listing"}
+              </Link>
+              <div className="text-xs text-slate-500">{l.address || ""}</div>
+            </td>
 
-  const riskColor =
-    fraudScore >= 80
-      ? "text-red-600"
-      : fraudScore >= 50
-      ? "text-yellow-600"
-      : "text-blue-600";
+                    {/* SCORE */}
+                    <td className="py-3 px-4 font-bold">{e.score}</td>
 
-  return (
-    <div className="p-4 bg-white shadow rounded-xl border border-gray-200">
-      <div className="flex gap-4">
-        {/* Image */}
-        <div className="w-28 h-20 rounded-lg overflow-hidden">
-          <img
-            src={thumbnail}
-            className="w-full h-full object-cover"
-            alt="listing"
-          />
-        </div>
+                    {/* RISK LEVEL */}
+                    <td className="py-3 px-4">
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-semibold
+                          ${
+                            e.riskLevel === "high"
+                              ? "bg-red-100 text-red-700"
+                              : e.riskLevel === "medium"
+                              ? "bg-amber-100 text-amber-700"
+                              : "bg-emerald-100 text-emerald-700"
+                          }
+                        `}
+                      >
+                        {e.riskLevel.toUpperCase()}
+                      </span>
+                    </td>
 
-        {/* Details */}
-        <div className="flex-1">
-          <div className="font-semibold">{title}</div>
-          <div className="text-xs text-gray-500">Listing ID: {id}</div>
-          <div className="text-xs text-gray-500">Owner: {ownerId}</div>
+                    {/* FLAGS */}
+                    <td className="py-3 px-4 text-xs">
+                      {(e.flags || []).slice(0, 3).join(", ") || "—"}
+                    </td>
 
-          {/* Fraud Score */}
-          <div className="mt-2 text-sm">
-            <span className="font-semibold">Fraud Score: </span>
-            <span className={`${riskColor} font-bold`}>
-              {fraudScore ?? "N/A"}
-            </span>
-          </div>
+                    {/* EXPLANATION */}
+                    <td className="py-3 px-4 text-xs text-slate-600 max-w-xs">
+                      {e.explanation || "—"}
+                    </td>
 
-          {/* AI Summary */}
-          {fraudSummary && (
-            <div className="mt-2 text-xs bg-orange-50 border border-orange-100 rounded-lg p-2">
-              <p className="font-semibold text-orange-700 mb-1">
-                AI Summary
-              </p>
-              <p className="text-orange-800">{fraudSummary}</p>
-            </div>
-          )}
-
-          {/* Reasons */}
-          {fraudReasons.length > 0 && (
-            <div className="mt-2 text-xs">
-              <p className="font-semibold text-gray-700">Risk Factors:</p>
-              <ul className="list-disc ml-4 text-gray-600">
-                {fraudReasons.map((r, i) => (
-                  <li key={i}>{r}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-
-        {/* Actions */}
-        <div className="flex flex-col gap-2 text-right">
-          <Link
-            to={`/listing/${id}`}
-            className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg"
-          >
-            View Listing
-          </Link>
-
-          {fraudStatus !== "safe" && (
-            <button
-              onClick={() => markListingSafe(id)}
-              className="px-3 py-1 text-sm bg-green-600 text-white rounded-lg"
-            >
-              Mark Safe
-            </button>
-          )}
-
-          {fraudStatus !== "fraud" && (
-            <button
-              onClick={() => flagAsFraud(id)}
-              className="px-3 py-1 text-sm bg-red-600 text-white rounded-lg"
-            >
-              Flag as Fraud
-            </button>
-          )}
-        </div>
+                    {/* ACTIONS */}
+                    <td className="py-3 px-4">
+                      <div className="flex flex-col gap-1">
+                        <button className="px-3 py-1 bg-gray-100 rounded hover:bg-gray-200 text-xs">
+                          Request Docs
+                        </button>
+                        <button className="px-3 py-1 bg-green-100 rounded hover:bg-green-200 text-xs">
+                          Approve
+                        </button>
+                        <button className="px-3 py-1 bg-red-100 rounded hover:bg-red-200 text-xs">
+                          Reject
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );

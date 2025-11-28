@@ -28,7 +28,8 @@ import SearchListings from "./pages/SearchListings.jsx";
 import About from "./pages/About.jsx";
 
 import AdminFraud from "./pages/AdminFraud.jsx";
-import AdminUsers from "./pages/AdminUsers.jsx";
+
+
 
 
 
@@ -45,6 +46,8 @@ function App() {
         <Route path="/search" element={<SearchListings />} />
         <Route path="/how-it-works" element={<About />} />
         <Route path="/admin/users" element={<AdminUsers />} />
+        <Route path="/admin/fraud" element={<AdminFraud />} />
+
 
         {/* Auth */}
         <Route path="/login" element={<Login />} />
