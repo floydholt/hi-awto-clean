@@ -1,26 +1,24 @@
-import * as admin from "firebase-admin";
 import twilio from "twilio";
+import { db } from "./admin.js"; // optional if you want to fetch admin phones
 
-const TWILIO_SID = process.env.TWILIO_SID!;
-const TWILIO_TOKEN = process.env.TWILIO_TOKEN!;
-const TWILIO_PHONE = process.env.TWILIO_PHONE!;
+const accountSid = process.env.TWILIO_ACCOUNT_SID!;
+const authToken = process.env.TWILIO_AUTH_TOKEN!;
+const fromNumber = process.env.TWILIO_FROM_NUMBER!;
 
-const client = twilio(TWILIO_SID, TWILIO_TOKEN);
+const client = twilio(accountSid, authToken);
 
 /**
- * Send SMS to all admins in /alerts_admins collection
+ * Broadcast an SMS message to all admin phone numbers
  */
-export async function sendAdminSms(body: string) {
-  const adminsSnap = await admin.firestore().collection("admins").get();
-  const adminPhones = adminsSnap.docs.map((d) => d.data()?.phone).filter(Boolean);
+export async function sendAdminSms(message: string): Promise<void> {
+  const snap = await db.collection("admins").get();
+  const recipients = snap.docs.map(d => d.data()?.phone).filter(Boolean);
 
-  await Promise.all(
-    adminPhones.map((to) =>
-      client.messages.create({
-        body,
-        to,
-        from: TWILIO_PHONE,
-      })
-    )
-  );
+  for (const phone of recipients) {
+    await client.messages.create({
+      body: message,
+      from: fromNumber,
+      to: phone,
+    });
+  }
 }
