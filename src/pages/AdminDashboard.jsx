@@ -2,7 +2,8 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import KpiGrid from "../components/KpiGrid.jsx";
-
+import AdminAlertsPanel from "../components/AdminAlertsPanel";
+import FraudReportPanel from "../components/FraudReportPanel.jsx";
 
 // --- Firebase Analytics Helpers ---
 import {
@@ -13,7 +14,7 @@ import {
   loadAiInsights,
   loadFraudEvents,
   loadListingsForAdmin,
-  loadFraudTrends, // ✔ Correct name
+  loadFraudTrends,
 } from "../firebase/adminAnalytics.js";
 
 // --- Export Helpers ---
@@ -22,12 +23,199 @@ import { exportXlsx } from "../utils/exportXlsx.js";
 import { exportXlsxWithCharts } from "../utils/exportXlsxWithCharts.js";
 import { exportFraudPdfReport } from "../utils/exportFraudPdf.js";
 
-// --- Fraud Report Panel ---
-import FraudReportPanel from "../components/FraudReportPanel.jsx";
+/* ====================================================================================
+   SUBCOMPONENTS (Moved up to be accessible in JSX)
+==================================================================================== */
 
-// --- UI Components ---
-import StatCard from "../components/StatCard.jsx"; // ✔ FIX
+function DashboardSectionHeader({ title, subtitle, range, setRange, onExport }) {
+  return (
+    <div className="flex items-center justify-between mb-4">
+      <div>
+        <h2 className="text-sm font-semibold text-slate-800">{title}</h2>
+        <p className="text-xs text-slate-500">{subtitle}</p>
+      </div>
 
+      <div className="flex items-center gap-2">
+        {[7, 30, 90].map((d) => (
+          <button
+            key={d}
+            onClick={() => setRange(d)}
+            className={`px-3 py-1 text-xs rounded-full border ${
+              range === d
+                ? "bg-blue-600 text-white border-blue-600"
+                : "bg-white text-slate-600 border-slate-300"
+            }`}
+          >
+            {d}d
+          </button>
+        ))}
+
+        <button
+          onClick={onExport}
+          className="px-3 py-1 text-xs rounded-full bg-green-600 text-white hover:bg-green-700"
+        >
+          ⬇ Export CSV
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function FraudTrendChart({ fraudSeries, maxFraud }) {
+  return (
+    <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+      <h2 className="text-sm font-semibold text-slate-800 mb-1">
+        Fraud Risk Trend
+      </h2>
+      <p className="text-xs text-slate-500 mb-3">
+        AI-generated fraud scores over time
+      </p>
+
+      <div className="h-48 flex items-end gap-2 border-t border-slate-100 pt-4">
+        {fraudSeries.length === 0 ? (
+          <p className="text-xs text-slate-400">No fraud data</p>
+        ) : (
+          fraudSeries.map((p, idx) => {
+            const height = (p.score / maxFraud) * 100 + 10;
+
+            return (
+              <div key={idx} className="flex-1 flex flex-col items-center">
+                <div
+                  className={`w-full rounded-t-lg ${
+                    p.riskLevel === "high"
+                      ? "bg-red-500"
+                      : p.riskLevel === "medium"
+                      ? "bg-yellow-500"
+                      : "bg-green-500"
+                  }`}
+                  style={{ height: `${height}px` }}
+                />
+                <div className="text-[10px] mt-1 text-slate-500">
+                  {new Date(p.timestamp).toLocaleDateString()}
+                </div>
+                <div className="text-[10px] text-slate-400">
+                  {p.score}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RecentListings({ listingStats }) {
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
+      <h2 className="text-sm font-semibold text-slate-800 mb-3">
+        Recent Listings
+      </h2>
+
+      <div className="space-y-2">
+        {listingStats?.recentListings?.length ? (
+          listingStats.recentListings.map((l) => (
+            <Link
+              key={l.id}
+              to={`/listing/${l.id}`}
+              className="flex justify-between items-center px-2 py-1 rounded hover:bg-slate-50 text-xs"
+            >
+              <div>
+                <div className="font-medium text-slate-800 truncate">
+                  {l.title || "Untitled listing"}
+                </div>
+                <div className="text-slate-500 truncate">
+                  {l.address || "No address"}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="font-semibold text-slate-900">
+                  {l.price ? `$${l.price.toLocaleString()}` : "—"}
+                </div>
+                <div className="text-[10px] uppercase tracking-wide text-slate-400">
+                  {l.status || "pending"}
+                </div>
+              </div>
+            </Link>
+          ))
+        ) : (
+          <p className="text-xs text-slate-400">No recent listings.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RecentUsers({ userStats }) {
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
+      <h2 className="text-sm font-semibold text-slate-800 mb-3">
+        Latest Users
+      </h2>
+
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-xs">
+          <thead>
+            <tr className="text-left text-slate-500 border-b border-slate-100">
+              <th className="py-2 pr-4">Name</th>
+              <th className="py-2 pr-4">Email</th>
+              <th className="py-2 pr-4">Role</th>
+              <th className="py-2 pr-4">Joined</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {userStats?.recentUsers?.length ? (
+              userStats.recentUsers.map((u) => (
+                <tr key={u.id} className="border-b border-slate-50">
+                  <td className="py-2 pr-4">{u.displayName || "—"}</td>
+                  <td className="py-2 pr-4 text-slate-600">{u.email || "—"}</td>
+                  <td className="py-2 pr-4">
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] ${
+                        u.role === "admin"
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-slate-50 text-slate-500"
+                      }`}
+                    >
+                      {u.role || "user"}
+                    </span>
+                  </td>
+                  <td className="py-2 pr-4 text-slate-500">
+                    {u.createdAt?.toDate
+                      ? u.createdAt.toDate().toLocaleDateString()
+                      : "—"}
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={4} className="text-center text-slate-400 py-3">
+                  No users found.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function AiSummaryPanel({ insights }) {
+  return (
+    <div className="bg-blue-50 border border-blue-100 rounded-xl p-5">
+      <h2 className="text-sm font-semibold text-blue-900 mb-2">
+        AI Summary Insights
+      </h2>
+      <p className="text-xs whitespace-pre-line text-blue-800">
+        {insights || "No AI summary available."}
+      </p>
+    </div>
+  );
+}
+
+// -------------------------------------------------------------
 
 export default function AdminDashboard() {
   const [listingStats, setListingStats] = useState(null);
@@ -69,6 +257,7 @@ export default function AdminDashboard() {
       loadListingsTimeSeries(range),
       loadFraudTrends(range),
       loadAiInsights(range),
+      // Check if functions exist before trying to call them (good practice)
       loadFraudEvents ? loadFraudEvents(range) : Promise.resolve([]),
       loadListingsForAdmin ? loadListingsForAdmin() : Promise.resolve([]),
     ])
@@ -283,198 +472,6 @@ export default function AdminDashboard() {
         fraudSeries={fraudSeries}
         userSeries={userStats?.recentUsers || []}
       />
-    </div>
-  );
-}
-
-/* ====================================================================================
-   SUBCOMPONENTS
-==================================================================================== */
-
-function DashboardSectionHeader({ title, subtitle, range, setRange, onExport }) {
-  return (
-    <div className="flex items-center justify-between mb-4">
-      <div>
-        <h2 className="text-sm font-semibold text-slate-800">{title}</h2>
-        <p className="text-xs text-slate-500">{subtitle}</p>
-      </div>
-
-      <div className="flex items-center gap-2">
-        {[7, 30, 90].map((d) => (
-          <button
-            key={d}
-            onClick={() => setRange(d)}
-            className={`px-3 py-1 text-xs rounded-full border ${
-              range === d
-                ? "bg-blue-600 text-white border-blue-600"
-                : "bg-white text-slate-600 border-slate-300"
-            }`}
-          >
-            {d}d
-          </button>
-        ))}
-
-        <button
-          onClick={onExport}
-          className="px-3 py-1 text-xs rounded-full bg-green-600 text-white hover:bg-green-700"
-        >
-          ⬇ Export CSV
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function FraudTrendChart({ fraudSeries, maxFraud }) {
-  return (
-    <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-      <h2 className="text-sm font-semibold text-slate-800 mb-1">
-        Fraud Risk Trend
-      </h2>
-      <p className="text-xs text-slate-500 mb-3">
-        AI-generated fraud scores over time
-      </p>
-
-      <div className="h-48 flex items-end gap-2 border-t border-slate-100 pt-4">
-        {fraudSeries.length === 0 ? (
-          <p className="text-xs text-slate-400">No fraud data</p>
-        ) : (
-          fraudSeries.map((p, idx) => {
-            const height = (p.score / maxFraud) * 100 + 10;
-
-            return (
-              <div key={idx} className="flex-1 flex flex-col items-center">
-                <div
-                  className={`w-full rounded-t-lg ${
-                    p.riskLevel === "high"
-                      ? "bg-red-500"
-                      : p.riskLevel === "medium"
-                      ? "bg-yellow-500"
-                      : "bg-green-500"
-                  }`}
-                  style={{ height: `${height}px` }}
-                />
-                <div className="text-[10px] mt-1 text-slate-500">
-                  {new Date(p.timestamp).toLocaleDateString()}
-                </div>
-                <div className="text-[10px] text-slate-400">
-                  {p.score}
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-    </div>
-  );
-}
-
-function RecentListings({ listingStats }) {
-  return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
-      <h2 className="text-sm font-semibold text-slate-800 mb-3">
-        Recent Listings
-      </h2>
-
-      <div className="space-y-2">
-        {listingStats?.recentListings?.length ? (
-          listingStats.recentListings.map((l) => (
-            <Link
-              key={l.id}
-              to={`/listing/${l.id}`}
-              className="flex justify-between items-center px-2 py-1 rounded hover:bg-slate-50 text-xs"
-            >
-              <div>
-                <div className="font-medium text-slate-800 truncate">
-                  {l.title || "Untitled listing"}
-                </div>
-                <div className="text-slate-500 truncate">
-                  {l.address || "No address"}
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="font-semibold text-slate-900">
-                  {l.price ? `$${l.price.toLocaleString()}` : "—"}
-                </div>
-                <div className="text-[10px] uppercase tracking-wide text-slate-400">
-                  {l.status || "pending"}
-                </div>
-              </div>
-            </Link>
-          ))
-        ) : (
-          <p className="text-xs text-slate-400">No recent listings.</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function RecentUsers({ userStats }) {
-  return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
-      <h2 className="text-sm font-semibold text-slate-800 mb-3">
-        Latest Users
-      </h2>
-
-      <div className="overflow-x-auto">
-        <table className="min-w-full text-xs">
-          <thead>
-            <tr className="text-left text-slate-500 border-b border-slate-100">
-              <th className="py-2 pr-4">Name</th>
-              <th className="py-2 pr-4">Email</th>
-              <th className="py-2 pr-4">Role</th>
-              <th className="py-2 pr-4">Joined</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {userStats?.recentUsers?.length ? (
-              userStats.recentUsers.map((u) => (
-                <tr key={u.id} className="border-b border-slate-50">
-                  <td className="py-2 pr-4">{u.displayName || "—"}</td>
-                  <td className="py-2 pr-4 text-slate-600">{u.email || "—"}</td>
-                  <td className="py-2 pr-4">
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] ${
-                        u.role === "admin"
-                          ? "bg-emerald-50 text-emerald-700"
-                          : "bg-slate-50 text-slate-500"
-                      }`}
-                    >
-                      {u.role || "user"}
-                    </span>
-                  </td>
-                  <td className="py-2 pr-4 text-slate-500">
-                    {u.createdAt?.toDate
-                      ? u.createdAt.toDate().toLocaleDateString()
-                      : "—"}
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={4} className="text-center text-slate-400 py-3">
-                  No users found.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function AiSummaryPanel({ insights }) {
-  return (
-    <div className="bg-blue-50 border border-blue-100 rounded-xl p-5">
-      <h2 className="text-sm font-semibold text-blue-900 mb-2">
-        AI Summary Insights
-      </h2>
-      <p className="text-xs whitespace-pre-line text-blue-800">
-        {insights || "No AI summary available."}
-      </p>
     </div>
   );
 }

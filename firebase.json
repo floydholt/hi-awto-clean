@@ -1,12 +1,12 @@
 {
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
   "functions": {
-    "source": "functions",
-    "ignore": [
-      "node_modules/**",
-      "src/**",
-      ".eslintrc.js",
-      "tsconfig.json"
-    ]
+    "source": "functions"
   },
   "hosting": {
     "public": "build",

@@ -1,34 +1,113 @@
+// =============================
+// HI-AWTO — FIRESTORE RULES
+// Production Security Model
+// =============================
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users (for roles)
+    // -----------------------------------
+    // 🎯  UTILITIES
+    // -----------------------------------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.admin == true;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // -----------------------------------
+    // 🧍 USERS COLLECTION
+    // users/{uid}
+    // -----------------------------------
     match /users/{uid} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == uid;
+      allow read: if isAdmin() || isOwner(uid);
+      allow write: if isOwner(uid);
     }
 
-    // Listings
-    match /listings/{id} {
-      allow read: if true;
+    // -----------------------------------
+    // 🏡 LISTINGS
+    // listings/{listingId}
+    // -----------------------------------
+    match /listings/{listingId} {
 
-      // Admin can modify anything
-      allow write: if request.auth.token.role == "admin";
+      // Public READ rules:
+      // Only "approved" listings are publicly visible.
+      allow get, list: if resource.data.status == "approved";
 
-      // Owner can modify their own listing (NOT AI fields)
-      allow update: if request.auth.uid == resource.data.ownerId
-        && !( "aiTags" in request.resource.data
-           || "aiCaption" in request.resource.data
-           || "aiPricing" in request.resource.data
-           || "aiFraud" in request.resource.data
-           || "fraudReviewStatus" in request.resource.data
-        );
+      // Signed-in owners can create listings
+      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
+
+      // Owners can update ONLY their own listing
+      // BUT may NOT modify admin-only fields
+      allow update: if isOwner(resource.data.ownerId)
+        && !( "status" in request.resource.data )         // owner cannot approve/reject
+        && !( "fraud" in request.resource.data )          // owner cannot modify fraud result
+        && !( "aiPricing" in request.resource.data )      // owner cannot modify AI pricing
+        && !( "aiTags" in request.resource.data )         // owner cannot fake tags
+        && !( "aiDescription" in request.resource.data ); // owner cannot fake descriptions
+
+      // Admins can update everything
+      allow update, delete: if isAdmin();
     }
 
-    // Fraud Events collection
+    // -----------------------------------
+    // 🔍 FRAUD EVENTS
+    // fraudEvents/{id}
+    // Written only by Cloud Functions
+    // Read only by admins
+    // -----------------------------------
     match /fraudEvents/{id} {
-      allow read: if request.auth.token.role == "admin";
-      allow write: if request.auth.token.role == "admin";
+      allow read: if isAdmin();
+      allow write: if request.time < timestamp.date(2030, 1, 1)
+                   && request.auth == null; // CF uses service account
+    }
+
+    // -----------------------------------
+    // 📊 ANALYTICS
+    // adminAnalytics/{id}
+    // Only admins
+    // -----------------------------------
+    match /adminAnalytics/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    // -----------------------------------
+    // 💬 MESSAGING THREADS
+    // threads/{threadId}
+    // Each thread contains members, messages, etc.
+    // -----------------------------------
+    match /threads/{threadId} {
+      allow read, write: if isAdmin() || request.auth.uid in resource.data.members;
+
+      match /messages/{messageId} {
+        allow read: if isAdmin() || request.auth.uid in resource.data.members;
+        allow create: if request.auth.uid in resource.data.members;
+        allow delete: if isAdmin();
+      }
+    }
+
+    // -----------------------------------
+    // 💬 ADMIN ACTION LOGS
+    // adminLogs/{logId}
+    // -----------------------------------
+    match /adminLogs/{logId} {
+      allow read, write: if isAdmin();
+    }
+
+    // -----------------------------------
+    // 🤖 AI SYSTEM LOGS
+    // ai/{doc}
+    // Admin only
+    // -----------------------------------
+    match /ai/{doc} {
+      allow read, write: if isAdmin();
     }
   }
 }
