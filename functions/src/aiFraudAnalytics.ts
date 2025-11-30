@@ -1,45 +1,25 @@
-// functions/src/aiFraudAnalytics.ts
-import { getFirestore } from "firebase-admin/firestore";
+// src/aiFraudAnalytics.ts
+import { db } from "./admin.js";
 import type { FraudAssessment, FraudAnalyticsPoint } from "./types.js";
 
-const db = getFirestore();
+const COLLECTION = "fraudEvents";
 
-/**
- * Store each fraud event for analytics chart.
- */
-export async function logFraudAnalytics(
+export async function recordFraudEvent(
   listingId: string,
   assessment: FraudAssessment
-) {
+): Promise<void> {
+  const now = Date.now();
+
   const point: FraudAnalyticsPoint = {
-    timestamp: Date.now(),
+    timestamp: now,
     score: assessment.score,
-    riskLevel: assessment.riskLevel,
+    riskLevel: assessment.riskLevel
   };
 
-  await db
-    .collection("analytics")
-    .doc("fraud")
-    .collection("events")
-    .add({
-      listingId,
-      ...point,
-    });
-}
-
-/**
- * Load fraud trend for chart display.
- */
-export async function loadFraudTrend(days: number) {
-  const cutoff = Date.now() - days * 86400000;
-
-  const snap = await db
-    .collection("analytics")
-    .doc("fraud")
-    .collection("events")
-    .where("timestamp", ">", cutoff)
-    .orderBy("timestamp", "asc")
-    .get();
-
-  return snap.docs.map((d) => d.data() as FraudAnalyticsPoint);
+  await db.collection(COLLECTION).add({
+    listingId,
+    ...point,
+    flags: assessment.flags,
+    explanation: assessment.explanation
+  });
 }

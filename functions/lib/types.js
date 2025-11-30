@@ -1,3 +1,2 @@
-// functions/src/types.ts
+// src/types.ts
 export {};
-//# sourceMappingURL=types.js.map

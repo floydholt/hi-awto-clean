@@ -1,32 +1,37 @@
-// functions/src/aiDescription.ts
+// src/aiDescription.ts
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { DescriptionInput, AIDescription } from "./types.js";
 
-const client = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-const model = client.getGenerativeModel({ model: "gemini-1.5-flash" });
+const apiKey = process.env.GEMINI_API_KEY;
+const client = apiKey ? new GoogleGenerativeAI(apiKey) : null;
+const model = client ? client.getGenerativeModel({ model: "gemini-1.5-flash" }) : null;
 
-export async function generateAIDescription(
-  input: DescriptionInput
-): Promise<AIDescription> {
-  const prompt = `
-Generate a professional real estate property description.
-Use MLS tone.
-Use 2–3 paragraphs.
-Avoid repeating numbers excessively.
-Do NOT invent features not provided.
+export async function generateAIDescription(input: DescriptionInput): Promise<string> {
+  if (!model) {
+    return input.description || "";
+  }
 
-Inputs:
-Title: ${input.title}
-Address: ${input.address}
-Beds: ${input.beds}
-Baths: ${input.baths}
-Sqft: ${input.sqft}
-User Description: ${input.description}
-AI Tags: ${input.aiTags.join(", ")}
-`;
+  const { title, address, beds, baths, sqft, description, aiTags } = input;
 
-  const result = await model.generateContent(prompt);
-  const text = result.response.text().trim();
+  const prompt =
+    "You are a real estate copywriter. Write a compelling but honest 3–5 paragraph property description. " +
+    "Use neutral, fair-housing-compliant language. " +
+    "Use the existing description as raw notes and improve clarity and structure.\n\n" +
+    `Title: ${title}\n` +
+    `Address: ${address}\n` +
+    `Beds: ${beds ?? ""}\n` +
+    `Baths: ${baths ?? ""}\n` +
+    `SqFt: ${sqft ?? ""}\n` +
+    `Existing description: ${description}\n` +
+    `AI tags: ${aiTags.join(", ")}\n\n` +
+    "Return ONLY the final listing description text. No JSON.";
 
-  return { fullDescription: text };
+  try {
+    const result = await model.generateContent(prompt);
+    const text = result.response.text().trim();
+    return text;
+  } catch (err) {
+    console.error("AI Description Error:", err);
+    return description || "";
+  }
 }

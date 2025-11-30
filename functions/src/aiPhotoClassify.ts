@@ -1,63 +1,73 @@
+// src/aiPhotoClassify.ts
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { PhotoClassificationResult } from "./types.js";
 
-const client = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-const model = client.getGenerativeModel({ model: "gemini-1.5-flash" });
+const apiKey = process.env.GEMINI_API_KEY;
+const client = apiKey ? new GoogleGenerativeAI(apiKey) : null;
+const model = client ? client.getGenerativeModel({ model: "gemini-1.5-flash" }) : null;
 
-async function imageToPart(url: string) {
+async function imageUrlToPart(url: string): Promise<any> {
   const res = await fetch(url);
-  const blob = await res.blob();
-  const array = await blob.arrayBuffer();
-  const base64 = Buffer.from(array).toString("base64");
+  const arrayBuffer = await res.arrayBuffer();
+  const base64 = Buffer.from(arrayBuffer).toString("base64");
+  const contentType = res.headers.get("content-type") || "image/jpeg";
 
   return {
     inlineData: {
       data: base64,
-      mimeType: blob.type || "image/jpeg",
-    },
+      mimeType: contentType
+    }
   };
 }
 
-export async function classifyPhoto(
-  imageUrl: string
-): Promise<PhotoClassificationResult> {
+export async function classifyPhoto(imageUrl: string): Promise<PhotoClassificationResult> {
+  const fallback: PhotoClassificationResult = {
+    type: "unknown",
+    confidence: 0
+  };
+
+  if (!model || !imageUrl) return fallback;
+
   try {
-    const part = await imageToPart(imageUrl);
-    if (!part) {
-      return { roomType: null, features: [], condition: null, qualityScore: null };
-    }
+    const part = await imageUrlToPart(imageUrl);
 
-    const prompt = `
-Classify the photo. Output ONLY JSON:
-
-{
-  "roomType": "kitchen | bedroom | bathroom | living_room | exterior | yard | floorplan | other",
-  "features": ["short", "keywords"],
-  "condition": "poor | fair | good | excellent",
-  "qualityScore": number
-}`;
+    const prompt =
+      "Classify the type of room shown in this real estate photo. " +
+      "Return JSON { type: string, confidence: number between 0 and 1 }. " +
+      "type should be one of: 'kitchen','bathroom','bedroom','living_room','exterior','other'.";
 
     const result = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: prompt }, part] }],
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: prompt }, part] as any[]
+        }
+      ]
     });
 
-    const raw = result.response.text().trim();
+    const text = result.response.text().trim();
     let parsed: any;
 
     try {
-      parsed = JSON.parse(raw);
-    } catch {
-      return { roomType: null, features: [], condition: null, qualityScore: null };
+      parsed = JSON.parse(text);
+    } catch (err) {
+      console.error("AI Photo classify JSON parse error:", text);
+      return fallback;
     }
 
-    return {
-      roomType: parsed.roomType ?? null,
-      features: Array.isArray(parsed.features) ? parsed.features : [],
-      condition: parsed.condition ?? null,
-      qualityScore: typeof parsed.qualityScore === "number" ? parsed.qualityScore : null,
-    };
+    const type =
+      typeof parsed.type === "string" && parsed.type.length
+        ? parsed.type
+        : fallback.type;
+
+    let confidence = Number(parsed.confidence ?? fallback.confidence);
+    if (!Number.isFinite(confidence) || confidence < 0 || confidence > 1) {
+      confidence = fallback.confidence;
+    }
+
+    return { type, confidence };
   } catch (err) {
-    console.error("AI classify error:", err);
-    return { roomType: null, features: [], condition: null, qualityScore: null };
+    console.error("AI Photo classify error:", err);
+    return fallback;
   }
 }

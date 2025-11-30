@@ -5,8 +5,6 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 // Components
 import Navbar from "./components/Navbar.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
-// NOTE: RequireAdmin component is imported but will be replaced by ProtectedRoute adminOnly prop for consistency
-import RequireAdmin from "./components/RequireAdmin.jsx"; 
 
 // Pages
 import Home from "./pages/Home.jsx";
@@ -26,7 +24,7 @@ import SearchListings from "./pages/SearchListings.jsx";
 import About from "./pages/About.jsx";
 import AdminFraud from "./pages/AdminFraud.jsx";
 import Forbidden from "./pages/Forbidden.jsx";
-
+import ListingBrochure from "./pages/ListingBrochure.jsx";
 
 function App() {
   return (
@@ -42,7 +40,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forbidden" element={<Forbidden />} />
-
+        <Route path="/listing/:id/brochure" element={<ListingBrochure />} />
 
         {/* === USER PROTECTED ROUTES (Requires Login) === */}
         <Route

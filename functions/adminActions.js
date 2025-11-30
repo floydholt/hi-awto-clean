@@ -1,50 +1,28 @@
-import { onCall } from "firebase-functions/v2/https";
-import * as admin from "firebase-admin";
-if (!admin.apps.length)
-    admin.initializeApp();
-const db = admin.firestore();
+import { db, auth } from "./admin.js";
+import { onDocumentWritten } from "firebase-functions/v2/firestore";
 /**
- * Valid Admin Actions
+ * Trigger: Sync user role → custom claims
  */
-const VALID_ACTIONS = ["approve", "reject", "needs_docs"];
+export const onUserRoleWrite = onDocumentWritten({ document: "users/{uid}", region: "us-central1" }, async (event) => {
+    const uid = event.params.uid;
+    const afterSnap = event.data?.after;
+    if (!afterSnap || !afterSnap.exists) {
+        await auth.setCustomUserClaims(uid, { admin: false });
+        return;
+    }
+    const userData = afterSnap.data();
+    const isAdmin = userData.role === "admin";
+    await auth.setCustomUserClaims(uid, { admin: isAdmin });
+});
 /**
- * Callable Function: admin.reviewListing
- * Allows an admin to approve/reject listings with justification
+ * Example admin action: review listing
  */
-export const reviewListing = onCall({ region: "us-central1" }, async (request) => {
-    const authUser = request.auth;
-    const { listingId, action, message } = request.data || {};
-    if (!authUser)
-        throw new Error("Not authenticated");
-    if (!authUser.token.admin)
-        throw new Error("Admin privileges required");
-    if (!VALID_ACTIONS.includes(action))
-        throw new Error("Invalid action");
-    if (!listingId)
-        throw new Error("listingId is required");
-    // Resolve listing reference
-    const ref = db.collection("listings").doc(listingId);
-    const snap = await ref.get();
-    if (!snap.exists)
-        throw new Error("Listing not found");
-    // Update listing moderation state
-    await ref.update({
-        adminReview: {
-            action,
-            message: message || "",
-            reviewedBy: authUser.uid,
-            reviewedAt: new Date().toISOString(),
-        },
-        status: action === "approve" ? "approved" : "flagged",
-    });
-    // Log event to fraud_events_admin
+export async function reviewListing(listingId, action, notes) {
     await db.collection("fraud_admin_actions").add({
         listingId,
         action,
-        message: message || "",
-        adminId: authUser.uid,
-        timestamp: Date.now(),
+        message: notes || "",
+        createdAt: Date.now(),
     });
-    return { success: true };
-});
+}
 //# sourceMappingURL=adminActions.js.map

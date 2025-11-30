@@ -1,21 +1,19 @@
-import sendgrid from "@sendgrid/mail";
+// src/email.ts
+import sgMail from "@sendgrid/mail";
 
-sendgrid.setApiKey(process.env.SENDGRID_API_KEY!);
+sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
 
-/**
- * Send an email to a specific admin
- */
-export async function sendAdminEmail(
-  to: string,
-  subject: string,
-  message: string
-): Promise<void> {
-  if (!to) throw new Error("Recipient email is required");
+export async function sendAdminEmail(to: string, subject: string, message: string) {
+  if (!process.env.SENDGRID_API_KEY) {
+    console.warn("SendGrid API key missing");
+    return;
+  }
 
-  await sendgrid.send({
+  await sgMail.send({
     to,
-    from: process.env.SENDGRID_FROM_EMAIL || "noreply@hiawto.com",
+    from: process.env.SENDGRID_FROM_EMAIL!,
     subject,
     text: message,
+    html: `<p>${message}</p>`,
   });
 }

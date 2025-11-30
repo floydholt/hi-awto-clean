@@ -1,61 +1,63 @@
+// src/index.ts
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { onCall } from "firebase-functions/v2/https";
-import * as admin from "firebase-admin";
 import { logger } from "firebase-functions";
+import { db, auth } from "./admin.js";
 import { generateAITags } from "./aiVision.js";
 import { generateAIPricing } from "./aiPricing.js";
 import { runFraudCheck } from "./aiFraud.js";
 import { generateAIDescription } from "./aiDescription.js";
+import { recordFraudEvent } from "./aiFraudAnalytics.js";
 import { generateListingBrochure } from "./brochure.js";
-// Initialize Firebase Admin once
-admin.initializeApp();
 // ================================================================
 // LISTING PROCESSOR TRIGGER
 // ================================================================
 export const processListing = onDocumentWritten({ document: "listings/{id}", region: "us-central1" }, async (event) => {
     const listingId = event.params.id;
-    const after = event.data?.after?.data();
-    if (!after)
+    const afterSnap = event.data?.after;
+    if (!afterSnap || !afterSnap.exists) {
+        logger.info("Listing deleted, skipping AI processing", { listingId });
         return;
-    logger.info("Processing listing", { listingId });
+    }
+    const after = afterSnap.data();
+    logger.info("Processing listing with AI", { listingId });
     try {
-        // 1. AI VISION (tags + caption)
         const vision = await generateAITags(after.imageUrls || []);
-        // 2. AI PRICING
         const pricing = await generateAIPricing({
-            title: after.title || "",
-            description: after.description || "",
-            beds: after.beds || 0,
-            baths: after.baths || 0,
-            sqft: after.sqft || 0,
-            zip: after.zip || "",
-            price: after.price || 0,
+            title: after.title ?? "",
+            description: after.description ?? "",
+            beds: Number(after.beds ?? after.bedrooms ?? 0),
+            baths: Number(after.baths ?? after.bathrooms ?? 0),
+            sqft: Number(after.sqft ?? 0),
+            zip: String(after.zip || ""),
+            price: Number(after.price ?? 0)
         });
-        // 3. AI FRAUD
         const fraud = await runFraudCheck(after);
-        // 4. AI PROPERTY DESCRIPTION
-        const description = await generateAIDescription({
-            title: after.title || "",
-            address: after.address || "",
-            beds: after.beds || 0,
-            baths: after.baths || 0,
-            sqft: after.sqft || 0,
-            description: after.description || "",
-            aiTags: vision.tags || [],
+        const fullDescription = await generateAIDescription({
+            title: after.title ?? "",
+            address: after.address ?? "",
+            beds: Number(after.beds ?? after.bedrooms ?? 0),
+            baths: Number(after.baths ?? after.bathrooms ?? 0),
+            sqft: Number(after.sqft ?? 0),
+            description: after.description ?? "",
+            aiTags: vision.tags || []
         });
-        // Save back to Firestore (merge ensures doc existence isn’t required)
-        await admin.firestore().collection("listings").doc(listingId).set({
+        await db.collection("listings").doc(listingId).update({
             aiTags: vision.tags,
             aiCaption: vision.caption,
             aiPricing: pricing,
             aiFraud: fraud,
-            aiFullDescription: description,
-            aiUpdatedAt: new Date().toISOString(),
-        }, { merge: true });
+            aiFullDescription: fullDescription,
+            aiUpdatedAt: new Date().toISOString()
+        });
+        await recordFraudEvent(listingId, fraud);
         logger.info("AI fields updated for listing", { listingId });
     }
     catch (err) {
-        logger.error("AI processing failed for listing", { listingId, error: err });
+        logger.error("AI processing failed for listing", {
+            listingId,
+            error: err.message
+        });
     }
 });
 // ================================================================
@@ -65,22 +67,26 @@ export const onUserRoleWrite = onDocumentWritten({ document: "users/{uid}", regi
     const uid = event.params.uid;
     const afterSnap = event.data?.after;
     if (!afterSnap || !afterSnap.exists) {
-        logger.info("User doc deleted, clearing claims", { uid });
-        await admin.auth().setCustomUserClaims(uid, { admin: false });
+        logger.info("User doc deleted, clearing admin claim", { uid });
+        await auth.setCustomUserClaims(uid, { admin: false });
         return;
     }
-    const after = afterSnap.data();
-    const isAdmin = after.role === "admin";
+    const data = afterSnap.data();
+    const role = data?.role || "user";
+    const isAdmin = role === "admin";
     try {
-        await admin.auth().setCustomUserClaims(uid, { admin: isAdmin });
-        logger.info("Updated custom claims", { uid, isAdmin });
+        await auth.setCustomUserClaims(uid, { admin: isAdmin });
+        logger.info("Updated custom claims for user", { uid, role, isAdmin });
     }
     catch (err) {
-        logger.error("Failed to update claims", { uid, error: err });
+        logger.error("Failed to update custom claims", {
+            uid,
+            error: err.message
+        });
     }
 });
 // ================================================================
-// BROCHURE GENERATOR
+// BROCHURE GENERATOR (CALLABLE)
 // ================================================================
 export const createListingBrochure = onCall({ region: "us-central1", timeoutSeconds: 300 }, async (request) => {
     const listingId = request.data?.listingId;
@@ -90,4 +96,3 @@ export const createListingBrochure = onCall({ region: "us-central1", timeoutSeco
     const storagePath = await generateListingBrochure(listingId);
     return { storagePath };
 });
-//# sourceMappingURL=index.js.map

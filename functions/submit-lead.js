@@ -1,8 +1,11 @@
-import * as admin from "firebase-admin";
-export const submitLead = async (lead) => {
-    await admin.firestore().collection("leads").add({
+import { db } from "./admin.js";
+/**
+ * Submit a new lead into Firestore
+ */
+export async function submitLead(lead) {
+    await db.collection("leads").add({
         ...lead,
-        createdAt: admin.firestore.FieldValue.serverTimestamp()
+        createdAt: Date.now(),
     });
-};
+}
 //# sourceMappingURL=submit-lead.js.map

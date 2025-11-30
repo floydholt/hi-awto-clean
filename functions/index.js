@@ -63,7 +63,7 @@ export const createListingBrochure = onCall({ region: "us-central1", timeoutSeco
     return { storagePath };
 });
 // --------------------------------------------------------------
-// USER ROLE CLAIMS SYNC (define here, not in admin.ts)
+// USER ROLE CLAIMS SYNC
 // --------------------------------------------------------------
 export const onUserRoleWrite = onDocumentWritten({ document: "users/{uid}", region: "us-central1" }, async (event) => {
     const uid = event.params.uid;

@@ -1,4 +1,4 @@
-// functions/src/types.ts
+// src/types.ts
 
 /* --------------------------------------------------
    AI VISION (TAGS + CAPTION)
@@ -54,7 +54,7 @@ export interface FraudAssessment {
   score: number; // 0–100
   riskLevel: "low" | "medium" | "high";
   flags: string[];
-  explanation: string; // REQUIRED
+  explanation: string;
 }
 
 /* --------------------------------------------------
@@ -68,14 +68,8 @@ export interface FraudAnalyticsPoint {
 
 /* --------------------------------------------------
    AI PHOTO CLASSIFICATION
-   (Used for detecting rooms: kitchen, bathroom, bedroom)
--------------------------------------------------- */
-/* --------------------------------------------------
-   AI PHOTO CLASSIFICATION (MATCHES aiPhotoClassify.ts)
 -------------------------------------------------- */
 export interface PhotoClassificationResult {
-  roomType: string | null;       // "kitchen", "bathroom", etc
-  features: string[];            // e.g., ["granite_counters", "stainless_appliances"]
-  condition: string | null;      // "updated", "dated", "poor"
-  qualityScore: number | null;   // 0–1
+  type: string;       // e.g., "kitchen", "bathroom", "living_room"
+  confidence: number; // 0–1
 }
