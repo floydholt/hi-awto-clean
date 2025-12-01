@@ -1,11 +1,11 @@
-// src/pages/AdminDashboard.jsx
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import KpiGrid from "../components/KpiGrid.jsx"; [cite_start]// [cite: 1]
-import FraudReportPanel from "../components/FraudReportPanel.jsx"; [cite_start]// [cite: 2]
-import AdminAlertsPanel from "../components/AdminAlertsPanel.jsx"; [cite_start]// FIX: Corrected relative path [cite: 5]
 
-// --- Firebase Analytics Helpers ---
+import KpiGrid from "../components/KpiGrid.jsx";
+import FraudReportPanel from "../components/FraudReportPanel.jsx";
+import AdminAlertsPanel from "../components/AdminAlertsPanel.jsx";
+import ActivityFeed from "../components/admin/ActivityFeed";
+
 import {
   listenToListingCounts,
   listenToUserCounts,
@@ -15,27 +15,23 @@ import {
   loadFraudEvents,
   loadListingsForAdmin,
   loadFraudTrends,
-} from "../firebase/adminAnalytics.js"; [cite_start]// [cite: 2]
+} from "../firebase/adminAnalytics.js";
 
-// --- Alert Helpers ---
 import {
   listenToAdminAlerts,
   markAdminAlertRead,
-} from "../firebase/adminAlerts.js"; [cite_start]// FIX: Corrected path assumption [cite: 5]
+} from "../firebase/adminAlerts.js";
 
-// --- Export Helpers ---
-import { exportCsv } from "../utils/exportCsv.js"; [cite_start]// [cite: 3]
-import { exportXlsx } from "../utils/exportXlsx.js"; [cite_start]// [cite: 3]
-import { exportXlsxWithCharts } from "../utils/exportXlsxWithCharts.js"; [cite_start]// [cite: 4]
-import { exportFraudPdfReport } from "../utils/exportFraudPdf.js"; [cite_start]// [cite: 4]
+import { exportCsv } from "../utils/exportCsv.js";
+import { exportXlsx } from "../utils/exportXlsx.js";
+import { exportXlsxWithCharts } from "../utils/exportXlsxWithCharts.js";
+import { exportFraudPdfReport } from "../utils/exportFraudPdf.js";
 
-import { useAuth } from "../firebase/AuthContext"; [cite_start]// FIX: Corrected path assumption [cite: 4]
+import { useAuth } from "../firebase/AuthContext";
 
-
-// ====================================================================================
-// SUBCOMPONENTS (Defined before the main component)
-// ====================================================================================
-
+// -----------------------------------------------------------
+// Reusable section header (for charts/cards)
+// -----------------------------------------------------------
 function DashboardSectionHeader({ title, subtitle, range, setRange, onExport }) {
   return (
     <div className="flex items-center justify-between mb-4">
@@ -51,7 +47,7 @@ function DashboardSectionHeader({ title, subtitle, range, setRange, onExport }) 
             onClick={() => setRange(d)}
             className={`px-3 py-1 text-xs rounded-full border ${
               range === d
-                [cite_start]? "bg-blue-600 text-white border-blue-600" // [cite: 11]
+                ? "bg-blue-600 text-white border-blue-600"
                 : "bg-white text-slate-600 border-slate-300"
             }`}
           >
@@ -59,17 +55,22 @@ function DashboardSectionHeader({ title, subtitle, range, setRange, onExport }) 
           </button>
         ))}
 
-        <button
-          onClick={onExport}
-          [cite_start]className="px-3 py-1 text-xs rounded-full bg-green-600 text-white hover:bg-green-700" // [cite: 12]
-        >
-          ⬇ Export CSV
-        </button>
+        {onExport && (
+          <button
+            onClick={onExport}
+            className="px-3 py-1 text-xs rounded-full bg-green-600 text-white hover:bg-green-700"
+          >
+            ⬇ Export CSV
+          </button>
+        )}
       </div>
     </div>
   );
-[cite_start]} // [cite: 13]
+}
 
+// -----------------------------------------------------------
+// Fraud Trend chart
+// -----------------------------------------------------------
 function FraudTrendChart({ fraudSeries, maxFraud }) {
   return (
     <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-100 p-6">
@@ -82,7 +83,7 @@ function FraudTrendChart({ fraudSeries, maxFraud }) {
 
       <div className="h-48 flex items-end gap-2 border-t border-slate-100 pt-4">
         {fraudSeries.length === 0 ? (
-          [cite_start]<p className="text-xs text-slate-400">No fraud data</p> // [cite: 14]
+          <p className="text-xs text-slate-400">No fraud data</p>
         ) : (
           fraudSeries.map((p, idx) => {
             const height = (p.score / maxFraud) * 100 + 10;
@@ -94,26 +95,27 @@ function FraudTrendChart({ fraudSeries, maxFraud }) {
                     p.riskLevel === "high"
                       ? "bg-red-500"
                       : p.riskLevel === "medium"
-                      [cite_start]? "bg-yellow-500" // [cite: 17]
+                      ? "bg-yellow-500"
                       : "bg-green-500"
                   }`}
                   style={{ height: `${height}px` }}
                 />
                 <div className="text-[10px] mt-1 text-slate-500">
-                  [cite_start]{new Date(p.timestamp).toLocaleDateString()} // [cite: 18]
+                  {new Date(p.timestamp).toLocaleDateString()}
                 </div>
-                <div className="text-[10px] text-slate-400">
-                  {p.score}
-                </div>
+                <div className="text-[10px] text-slate-400">{p.score}</div>
               </div>
-            ); [cite_start]// [cite: 19]
-          [cite_start]}) // [cite: 20]
+            );
+          })
         )}
       </div>
     </div>
   );
-[cite_start]} // [cite: 21]
+}
 
+// -----------------------------------------------------------
+// Recent Listings list
+// -----------------------------------------------------------
 function RecentListings({ listingStats }) {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
@@ -126,12 +128,12 @@ function RecentListings({ listingStats }) {
           listingStats.recentListings.map((l) => (
             <Link
               key={l.id}
-              [cite_start]to={`/listing/${l.id}`} // [cite: 22]
+              to={`/listing/${l.id}`}
               className="flex justify-between items-center px-2 py-1 rounded hover:bg-slate-50 text-xs"
             >
               <div>
                 <div className="font-medium text-slate-800 truncate">
-                  {l.title || [cite_start]"Untitled listing"} // [cite: 23]
+                  {l.title || "Untitled listing"}
                 </div>
                 <div className="text-slate-500 truncate">
                   {l.address || "No address"}
@@ -139,10 +141,10 @@ function RecentListings({ listingStats }) {
               </div>
               <div className="text-right">
                 <div className="font-semibold text-slate-900">
-                  {l.price ? [cite_start]`$${l.price.toLocaleString()}` : "—"} // [cite: 25]
+                  {l.price ? `$${l.price.toLocaleString()}` : "—"}
                 </div>
                 <div className="text-[10px] uppercase tracking-wide text-slate-400">
-                  {l.status || [cite_start]"pending"} // [cite: 26]
+                  {l.status || "pending"}
                 </div>
               </div>
             </Link>
@@ -153,8 +155,11 @@ function RecentListings({ listingStats }) {
       </div>
     </div>
   );
-[cite_start]} // [cite: 27]
+}
 
+// -----------------------------------------------------------
+// Recent Users table
+// -----------------------------------------------------------
 function RecentUsers({ userStats }) {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
@@ -166,51 +171,55 @@ function RecentUsers({ userStats }) {
         <table className="min-w-full text-xs">
           <thead>
             <tr className="text-left text-slate-500 border-b border-slate-100">
-              [cite_start]<th className="py-2 pr-4">Name</th> {/* [cite: 28] */}
+              <th className="py-2 pr-4">Name</th>
               <th className="py-2 pr-4">Email</th>
               <th className="py-2 pr-4">Role</th>
               <th className="py-2 pr-4">Joined</th>
             </tr>
           </thead>
-
           <tbody>
             {userStats?.recentUsers?.length ? (
-              [cite_start]userStats.recentUsers.map((u) => ( // [cite: 29]
+              userStats.recentUsers.map((u) => (
                 <tr key={u.id} className="border-b border-slate-50">
                   <td className="py-2 pr-4">{u.displayName || "—"}</td>
-                  <td className="py-2 pr-4 text-slate-600">{u.email || [cite_start]"—"}</td> // [cite: 30]
+                  <td className="py-2 pr-4 text-slate-600">
+                    {u.email || "—"}
+                  </td>
                   <td className="py-2 pr-4">
                     <span
                       className={`px-2 py-0.5 rounded-full text-[10px] ${
                         u.role === "admin"
-                          ? [cite_start]"bg-emerald-50 text-emerald-700" // [cite: 32]
+                          ? "bg-emerald-50 text-emerald-700"
                           : "bg-slate-50 text-slate-500"
                       }`}
                     >
-                      {u.role || [cite_start]"user"} // [cite: 33]
+                      {u.role || "user"}
                     </span>
                   </td>
                   <td className="py-2 pr-4 text-slate-500">
                     {u.createdAt?.toDate
-                      [cite_start]? u.createdAt.toDate().toLocaleDateString() // [cite: 34]
+                      ? u.createdAt.toDate().toLocaleDateString()
                       : "—"}
                   </td>
                 </tr>
               ))
             ) : (
-              [cite_start]<tr> {/* [cite: 35] */}
+              <tr>
                 <td colSpan={4} className="text-center text-slate-400 py-3">
                   No users found.
                 </td>
               </tr>
             )}
           </tbody>
-        [cite_start]</table> {/* [cite: 36] */}
+        </table>
       </div>
     </div>
   );
-[cite_start]} // [cite: 37]
+}
 
+// -----------------------------------------------------------
+// AI Summary
+// -----------------------------------------------------------
 function AiSummaryPanel({ insights }) {
   return (
     <div className="bg-blue-50 border border-blue-100 rounded-xl p-5">
@@ -222,89 +231,84 @@ function AiSummaryPanel({ insights }) {
       </p>
     </div>
   );
-[cite_start]} // [cite: 38]
+}
 
-// -------------------------------------------------------------
-
+// -----------------------------------------------------------
+// MAIN ADMIN DASHBOARD
+// -----------------------------------------------------------
 export default function AdminDashboard() {
-  // FIX 1: Hooks and state must be defined inside the function component
   const { user } = useAuth();
-  const [alerts, setAlerts] = useState([]); [cite_start]// [cite: 6] (Moved inside)
 
+  // High-level stats
+  const [alerts, setAlerts] = useState([]);
   const [listingStats, setListingStats] = useState(null);
   const [userStats, setUserStats] = useState(null);
-  const [threadStats, setThreadStats] = useState(null); [cite_start]// [cite: 39]
+  const [threadStats, setThreadStats] = useState(null);
 
+  // Time-series + fraud
   const [series, setSeries] = useState([]);
   const [fraudSeries, setFraudSeries] = useState([]);
   const [aiInsights, setAiInsights] = useState("");
-  const [fraudEvents, setFraudEvents] = useState([]); [cite_start]// [cite: 40]
+  const [fraudEvents, setFraudEvents] = useState([]);
   const [adminListings, setAdminListings] = useState([]);
 
   const [range, setRange] = useState(7);
   const [loadingSeries, setLoadingSeries] = useState(false);
 
-  // FIX 2: Handler function moved inside to access 'user'
-  [cite_start]const handleMarkAlertRead = async (alertId) => { // [cite: 7]
+  // ---- ALERT HANDLING ----
+  const handleMarkAlertRead = async (alertId) => {
     if (!user) return;
     try {
-      await markAdminAlertRead(alertId, user.uid); [cite_start]// [cite: 7]
+      await markAdminAlertRead(alertId, user.uid);
     } catch (err) {
-      console.error("Failed to mark alert as read", err); [cite_start]// [cite: 8]
+      console.error("Failed to mark alert as read", err);
     }
   };
 
-  // ─────────────────────────────────────────────
-  // REAL-TIME LISTENERS (LISTINGS / USERS / THREADS / ALERTS)
-  // ─────────────────────────────────────────────
-  [cite_start]useEffect(() => { // [cite: 41]
+  // ---- REAL-TIME LISTENERS FOR COUNTS + ALERTS ----
+  useEffect(() => {
     const unsub1 = listenToListingCounts(setListingStats);
     const unsub2 = listenToUserCounts(setUserStats);
     const unsub3 = listenToThreadCounts(setThreadStats);
-    const unsub4 = listenToAdminAlerts(setAlerts); // FIX: Integrated alert listener
+    const unsub4 = listenToAdminAlerts(setAlerts);
 
     return () => {
       unsub1 && unsub1();
       unsub2 && unsub2();
       unsub3 && unsub3();
-      unsub4 && unsub4(); // FIX: Added cleanup for alert listener
+      unsub4 && unsub4();
     };
   }, []);
 
-  // ─────────────────────────────────────────────
-  // LOAD TIME-SERIES + FRAUD TREND + AI INSIGHTS
-  // ─────────────────────────────────────────────
-  [cite_start]useEffect(() => { // [cite: 42]
+  // ---- LOAD ANALYTICS SERIES ----
+  useEffect(() => {
     setLoadingSeries(true);
 
     Promise.all([
       loadListingsTimeSeries(range),
       loadFraudTrends(range),
       loadAiInsights(range),
-      // Check if functions exist before trying to call them (good practice)
       loadFraudEvents ? loadFraudEvents(range) : Promise.resolve([]),
       loadListingsForAdmin ? loadListingsForAdmin() : Promise.resolve([]),
     ])
       .then(([listingChart, fraudChart, insights, fraudEv, listingsAdmin]) => {
-        [cite_start]setSeries(listingChart || []); // [cite: 43]
+        setSeries(listingChart || []);
         setFraudSeries(fraudChart || []);
         setAiInsights(insights || "");
         setFraudEvents(fraudEv || []);
         setAdminListings(listingsAdmin || []);
       })
       .finally(() => setLoadingSeries(false));
-  }, [range]); [cite_start]// [cite: 43]
+  }, [range]);
 
   const maxCount =
-    series.length > 0 ? Math.max(...series.map((s) => s.count)) : 1; [cite_start]// [cite: 44]
+    series.length > 0 ? Math.max(...series.map((s) => s.count)) : 1;
   const maxFraud =
-    fraudSeries.length > 0 ? Math.max(...fraudSeries.map((s) => s.score)) : 1; [cite_start]// [cite: 45]
+    fraudSeries.length > 0 ? Math.max(...fraudSeries.map((s) => s.score)) : 1;
   const rangeLabel =
-    range === 7 ? "Last 7 days" : range === 30 ? "Last 30 days" : "Last 90 days"; [cite_start]// [cite: 47]
+    range === 7 ? "Last 7 days" : range === 30 ? "Last 30 days" : "Last 90 days";
 
-  // ─────────────────────────────────────────────
-  // EXPORT HANDLERS
-  // ─────────────────────────────────────────────
+  // ---- EXPORT HANDLERS ----
   const handleExportXlsxSimple = () => {
     const rows = series.map((p) => ({
       Date: p.label,
@@ -312,7 +316,7 @@ export default function AdminDashboard() {
       Range_Days: range,
       Exported_At: new Date().toISOString(),
     }));
-    exportXlsx(`listings_timeseries_${range}d.xlsx`, rows); [cite_start]// [cite: 48]
+    exportXlsx(`listings_timeseries_${range}d.xlsx`, rows);
   };
 
   const handleExportAnalyticsXlsx = () => {
@@ -324,7 +328,7 @@ export default function AdminDashboard() {
         chartSeries: {
           listings: {
             labels: series.map((x) => x.label),
-            [cite_start]values: series.map((x) => x.count), // [cite: 49]
+            values: series.map((x) => x.count),
           },
           fraud: {
             labels: fraudSeries.map((x) =>
@@ -333,18 +337,18 @@ export default function AdminDashboard() {
             values: fraudSeries.map((x) => x.score),
           },
           users: {
-            [cite_start]labels: (userStats?.recentUsers || []).map((u) => // [cite: 50]
+            labels: (userStats?.recentUsers || []).map((u) =>
               u.createdAt?.toDate
                 ? u.createdAt.toDate().toLocaleDateString()
                 : ""
             ),
             values: (userStats?.recentUsers || []).map(() => 1),
-          [cite_start]}, // [cite: 51]
+          },
         },
       },
       "analytics_report.xlsx"
     );
-  }; [cite_start]// [cite: 52]
+  };
 
   const handleExportFraudPdf = () => {
     exportFraudPdfReport(
@@ -355,21 +359,28 @@ export default function AdminDashboard() {
       },
       "fraud_report.pdf"
     );
-  }; [cite_start]// [cite: 53]
+  };
 
-  // ─────────────────────────────────────────────
-  // RENDER
-  // ─────────────────────────────────────────────
+  const handleExportListingsCsv = () => {
+    const rows = series.map((p) => ({
+      label: p.label,
+      count: p.count,
+      range_days: range,
+      exported_at: new Date().toISOString(),
+    }));
+    exportCsv(`listings_timeseries_${range}d.csv`, rows);
+  };
+
+  // ---- RENDER ----
   return (
     <div className="max-w-6xl mx-auto px-6 py-10 space-y-10">
-
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Admin Analytics</h1>
           <p className="text-sm text-slate-500 mt-1">
             Track marketplace activity, growth, fraud risk, and system health.
-          [cite_start]</p> {/* [cite: 54] */}
+          </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -382,14 +393,13 @@ export default function AdminDashboard() {
 
           <Link
             to="/admin/fraud"
-            [cite_start]className="px-3 py-2 text-sm rounded-lg bg-amber-100 border border-amber-300 text-amber-800 hover:bg-amber-200" // [cite: 55]
+            className="px-3 py-2 text-sm rounded-lg bg-amber-100 border border-amber-300 text-amber-800 hover:bg-amber-200"
           >
             Fraud Review
           </Link>
 
-          {/* Export Buttons */}
           <button
-            [cite_start]onClick={handleExportXlsxSimple} // [cite: 56]
+            onClick={handleExportXlsxSimple}
             className="px-3 py-2 text-sm rounded-lg bg-indigo-600 text-white hover:bg-indigo-700"
           >
             📊 Export XLSX
@@ -398,7 +408,7 @@ export default function AdminDashboard() {
           <button
             onClick={handleExportAnalyticsXlsx}
             className="px-3 py-2 text-sm rounded-lg bg-indigo-700 text-white hover:bg-indigo-800"
-          > [cite_start]{/* [cite: 57] */}
+          >
             📈 XLSX + Charts
           </button>
 
@@ -407,88 +417,75 @@ export default function AdminDashboard() {
             className="px-3 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700"
           >
             🧾 Fraud PDF
-          [cite_start]</button> {/* [cite: 58] */}
+          </button>
         </div>
       </div>
 
-      {/* KPI GRID (FIX: Moved the AdminAlertsPanel JSX to its own section) */}
+      {/* KPI GRID */}
       <KpiGrid
         listingStats={listingStats}
         userStats={userStats}
         threadStats={threadStats}
       />
 
-      {/* ADMIN ALERTS PANEL */}
-      [cite_start]<AdminAlertsPanel // [cite: 5]
+      {/* ALERTS */}
+      <AdminAlertsPanel
         alerts={alerts}
         currentUid={user?.uid}
         onMarkRead={handleMarkAlertRead}
       />
 
-      {/* LISTINGS CHART + RECENT LISTINGS */}
+      {/* LISTINGS TREND + RECENT LISTINGS */}
       <div className="grid lg:grid-cols-3 gap-6">
-
-        {/* LISTINGS TREND */}
-        [cite_start]<div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-100 p-6"> {/* [cite: 59] */}
+        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-100 p-6">
           <DashboardSectionHeader
             title="New Listings Over Time"
             subtitle="Filter by range or export chart data."
             range={range}
             setRange={setRange}
-            [cite_start]onExport={() => { // [cite: 60]
-              const csvRows = series.map((p) => ({
-                label: p.label,
-                count: p.count,
-                range_days: range,
-                exported_at: new Date().toISOString(),
-              }));
-              exportCsv(`listings_timeseries_${range}d.csv`, csvRows); [cite_start]// [cite: 61]
-            }}
+            onExport={handleExportListingsCsv}
           />
 
-          {/* Chart */}
           <div className="h-48 flex items-end gap-2 border-t border-slate-100 pt-4">
-            {loadingSeries ? [cite_start]( // [cite: 62]
+            {loadingSeries ? (
               <p className="text-xs text-slate-400 animate-pulse">
                 Loading chart…
               </p>
-            ) : series.length === 0 ? [cite_start]( // [cite: 63]
+            ) : series.length === 0 ? (
               <p className="text-xs text-slate-400">No data</p>
             ) : (
               series.map((p, idx) => {
                 const height = (p.count / maxCount) * 100 + 10;
                 return (
-                  [cite_start]<div key={idx} className="flex-1 flex flex-col items-center"> {/* [cite: 64] */}
+                  <div
+                    key={idx}
+                    className="flex-1 flex flex-col items-center"
+                  >
                     <div
                       className="w-full bg-blue-500 rounded-t-lg transition-all"
                       style={{ height: `${height}px` }}
-                    [cite_start]/> {/* [cite: 65] */}
+                    />
                     <div className="text-[10px] mt-1 text-slate-500">
                       {p.label}
                     </div>
                     <div className="text-[10px] text-slate-400">
-                      [cite_start]{p.count} {/* [cite: 66] */}
+                      {p.count}
                     </div>
                   </div>
                 );
               })
             )}
-          [cite_start]</div> {/* [cite: 67] */}
+          </div>
         </div>
 
-        {/* RECENT LISTINGS */}
         <RecentListings listingStats={listingStats} />
       </div>
 
       {/* FRAUD TREND + USERS */}
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* FRAUD TREND */}
         <FraudTrendChart fraudSeries={fraudSeries} maxFraud={maxFraud} />
-
-        {/* USERS */}
         <RecentUsers userStats={userStats} />
-
-      [cite_start]</div> {/* [cite: 68] */}
+      </div>
 
       {/* AI INSIGHTS */}
       <AiSummaryPanel insights={aiInsights} />
@@ -500,8 +497,15 @@ export default function AdminDashboard() {
         rangeLabel={rangeLabel}
         listingSeries={series}
         fraudSeries={fraudSeries}
-        userSeries={userStats?.recentUsers || [cite_start][]} // [cite: 69]
+        userSeries={userStats?.recentUsers || []}
       />
+
+      {/* ACTIVITY FEED */}
+      <div className="grid lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-3">
+          <ActivityFeed />
+        </div>
+      </div>
     </div>
   );
 }

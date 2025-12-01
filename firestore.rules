@@ -175,3 +175,29 @@ service cloud.firestore {
     }
   }
 }
+
+match /listings/{id} {
+  allow update: if isAdmin();
+  allow read: if isAdmin();
+}
+
+match /users/{uid} {
+  allow read: if isAdmin();
+  allow update: if isAdmin();
+}
+
+match /listings/{id} {
+  allow read, update: if isAdmin();
+}
+
+match /users/{uid} {
+  allow read, update: if isAdmin();
+}
+
+match /fraudEvents/{id} {
+  allow read: if isAdmin();
+}
+
+match /leads/{id} {
+  allow read: if isAdmin();
+}

@@ -1,25 +1,26 @@
-// src/aiFraudAnalytics.ts
+// functions/src/aiFraudAnalytics.ts
 import { db } from "./admin.js";
-import type { FraudAssessment, FraudAnalyticsPoint } from "./types.js";
 
-const COLLECTION = "fraudEvents";
+
+interface FraudResult {
+  score?: number;
+  [key: string]: any;
+}
 
 export async function recordFraudEvent(
   listingId: string,
-  assessment: FraudAssessment
+  fraud: FraudResult | null | undefined
 ): Promise<void> {
-  const now = Date.now();
+  try {
+    if (!fraud) return;
 
-  const point: FraudAnalyticsPoint = {
-    timestamp: now,
-    score: assessment.score,
-    riskLevel: assessment.riskLevel
-  };
-
-  await db.collection(COLLECTION).add({
-    listingId,
-    ...point,
-    flags: assessment.flags,
-    explanation: assessment.explanation
-  });
+    await db.collection("fraudEvents").add({
+      listingId,
+      score: fraud.score ?? null,
+      details: fraud,
+      createdAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error("Failed to record fraud event", listingId, err);
+  }
 }

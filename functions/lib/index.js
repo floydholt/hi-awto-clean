@@ -2,13 +2,13 @@
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { onCall } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions";
-import { db, auth } from "./admin"; // ✅ fixed
-import { generateAITags } from "./aiVision";
-import { generateAIPricing } from "./aiPricing";
-import { runFraudCheck } from "./aiFraud";
-import { generateAIDescription } from "./aiDescription";
-import { recordFraudEvent } from "./aiFraudAnalytics";
-import { generateListingBrochure } from "./brochure";
+import { db, auth } from "./admin.js";
+import { generateAITags } from "./aiVision.js";
+import { generateAIPricing } from "./aiPricing.js";
+import { runFraudCheck } from "./aiFraud.js";
+import { generateAIDescription } from "./aiDescription.js";
+import { recordFraudEvent } from "./aiFraudAnalytics.js";
+import { generateListingBrochure } from "./brochure.js";
 // ================================================================
 // LISTING PROCESSOR TRIGGER
 // ================================================================

@@ -5,6 +5,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 // Components
 import Navbar from "./components/Navbar.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
+import RequireAdmin from "./components/RequireAdmin.jsx"; [cite_start]// [cite: 6]
 
 // Pages
 import Home from "./pages/Home.jsx";
@@ -25,8 +26,11 @@ import About from "./pages/About.jsx";
 import AdminFraud from "./pages/AdminFraud.jsx";
 import Forbidden from "./pages/Forbidden.jsx";
 import ListingBrochure from "./pages/ListingBrochure.jsx";
+import AdminLeads from "./pages/AdminLeads.jsx";
+import AdminHealth from "./pages/AdminHealth.jsx";
 
-function App() {
+
+[cite_start]function App() { // [cite: 7]
   return (
     <Router>
       <Navbar />
@@ -38,9 +42,52 @@ function App() {
         <Route path="/search" element={<SearchListings />} />
         <Route path="/how-it-works" element={<About />} />
         <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+        [cite_start]<Route path="/register" element={<Register />} /> {/* [cite: 8] */}
         <Route path="/forbidden" element={<Forbidden />} />
         <Route path="/listing/:id/brochure" element={<ListingBrochure />} />
+
+        {/* === ADMIN ROUTES using RequireAdmin (Group 1 - Kept for Leads/Health) === */}
+      
+        <Route
+          path="/admin/listings"
+          element={
+            <RequireAdmin>
+              <AdminListings />
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="/admin/users"
+          element={
+            <RequireAdmin>
+              <AdminUsers />
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="/admin/fraud"
+          element={
+            <RequireAdmin>
+              <AdminFraud />
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="/admin/leads"
+          element={
+            <RequireAdmin>
+              <AdminLeads />
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="/admin/health"
+          element={
+            <RequireAdmin>
+              <AdminHealth />
+            </RequireAdmin>
+          }
+        />
 
         {/* === USER PROTECTED ROUTES (Requires Login) === */}
         <Route
@@ -86,50 +133,28 @@ function App() {
           }
         />
 
-        {/* === ADMIN PROTECTED ROUTES (Requires Admin Role) === */}
+        {/* === ADMIN PROTECTED ROUTES (Group 2 - Kept for Admin Dashboard/Messages) === */}
         <Route
           path="/admin"
           element={
-            <ProtectedRoute adminOnly>
+            <RequireAdmin>
               <AdminDashboard />
-            </ProtectedRoute>
+            </RequireAdmin>
           }
         />
         <Route
           path="/admin/messages"
           element={
-            <ProtectedRoute adminOnly>
+            <RequireAdmin>
               <MessagingCenterAdmin />
-            </ProtectedRoute>
+            </RequireAdmin>
           }
         />
-        <Route
-          path="/admin/listings"
-          element={
-            <ProtectedRoute adminOnly>
-              <AdminListings />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/users"
-          element={
-            <ProtectedRoute adminOnly>
-              <AdminUsers />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/fraud"
-          element={
-            <ProtectedRoute adminOnly>
-              <AdminFraud />
-            </ProtectedRoute>
-          }
-        />
+        
+        
       </Routes>
     </Router>
   );
-}
+[cite_start]} // [cite: 19]
 
 export default App;
