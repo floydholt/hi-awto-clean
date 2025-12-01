@@ -1,10 +1,9 @@
-// src/admin.ts
-import * as admin from "firebase-admin";
-
+// functions/src/admin.ts
+import admin from "firebase-admin";
 if (!admin.apps.length) {
   admin.initializeApp();
 }
-
 export const db = admin.firestore();
 export const auth = admin.auth();
 export const storage = admin.storage();
+export { admin };
