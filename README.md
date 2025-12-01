@@ -1,38 +1,48 @@
-# HI AWTO 🚀
-**HERE IS ANOTHER WAY TO OWN**
+# HI-AWTO CLEAN — Full Admin + AI Real Estate Platform
 
-HI AWTO is a premium, real-time buyer–seller platform designed to democratize homeownership.  
-It blends a modern React frontend with Firebase Cloud Functions and an AI pipeline powered by Gemini.
+This project is a full-stack real estate platform with:
+- AI-powered listing processing
+- Fraud detection
+- Admin moderation tools
+- User messaging
+- Lead management
+- System monitoring
+- PDF brochure generation
 
----
+## Features
 
-## ✨ Features
+### User Side
+- Browse real estate listings
+- View details, photos, AI-generated descriptions & pricing
+- Submit leads
+- Messaging with sellers/admin
 
-- 🔑 **Authentication**: Email/password, Google, and Apple sign-in
-- 🏠 **Listings**: Create, update, search, and moderate property listings
-- 🤖 **AI Pipeline**:
-  - Vision tags + captions (Gemini Vision)
-  - Pricing suggestions
-  - Fraud detection
-  - Full property descriptions
-- 📊 **Admin Dashboard**: Approve/reject listings, manage featured properties
-- ⚡ **Realtime Firestore**: Instant updates across buyer and seller views
-- 📱 **Responsive UI**: Investor-ready, clean, and mobile-friendly
+### Admin Console
+- Real-time Activity Feed
+- Listing Moderation (approve / reject / flag fraud)
+- User Manager (promote/demote/disable)
+- Fraud Center (AI fraud events)
+- Leads Manager (buyer inquiries)
+- System Health Dashboard (errors, AI jobs, metrics)
+- CSV/XLSX/PDF exports
+- Re-run AI pipeline
 
----
+### Firebase Backend
+- Node.js 20 Functions
+- AI image tagging
+- AI pricing model
+- AI description model
+- Fraud detection model
+- PDF brochure generation
+- Admin event logging
+- Custom roles system
 
-## 🛠️ Tech Stack
+### Firestore Collections
+- listings
+- users
+- leads
+- adminLogs
+- fraudEvents
 
-| Layer        | Technology |
-|--------------|------------|
-| Frontend     | React, JSX, Tailwind/SCSS |
-| Backend      | Firebase Functions (Node.js 20, TypeScript) |
-| Database     | Firestore (NoSQL, realtime) |
-| AI           | Google Generative AI (Gemini 1.5) |
-| Auth         | Firebase Authentication |
-| CI/CD        | GitHub Actions + Firebase Hosting |
-
----
-
-## 📂 Project Structure
+## Scripts
 

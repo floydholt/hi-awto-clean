@@ -5,7 +5,6 @@ import {
   onSnapshot,
   query,
   orderBy,
-  limit,
   where,
 } from "firebase/firestore";
 import { collection, getDocs } from "firebase/firestore";

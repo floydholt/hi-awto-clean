@@ -11,6 +11,10 @@ import { generateAIDescription } from "./aiDescription.js";
 import { recordFraudEvent } from "./aiFraudAnalytics.js";
 import { generateListingBrochure } from "./brochure.js";
 
+import { reRunAIProcessing } from "./reRunAI.js";
+import * as functionsV2 from "firebase-functions/v2/https";
+
+
 
 
 // ================================================================
@@ -123,3 +127,10 @@ export const createListingBrochure = onCall(
     return { storagePath };
   }
 );
+
+export const reRunAI = functionsV2.onCall(async (data) => {
+  const listingId = data.listingId;
+  if (!listingId) throw new Error("Missing listingId");
+  return await reRunAIProcessing(listingId);
+});
+

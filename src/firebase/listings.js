@@ -13,7 +13,19 @@ import {
   limit,
 } from "firebase/firestore";
 
-import { db } from "./firestore.js";
+import { db } from "./index.js"; // ✔ correct import
+
+/* -------------------------------------------------------
+   GET LISTING BY ID
+------------------------------------------------------- */
+export async function getListing(listingId) {
+  const ref = doc(db, "listings", listingId);
+  const snap = await getDoc(ref);
+  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+}
+
+// Alias for backwards compatibility
+export const getListingById = getListing;
 
 /* -------------------------------------------------------
    CREATE LISTING
@@ -29,16 +41,12 @@ export async function createListing(data) {
     baths: 0,
     description: "",
     imageUrls: [],
-    uid: data.uid || null, // owner
+    uid: data.uid || null,
     createdAt: new Date(),
     updatedAt: new Date(),
 
-    // Moderation defaults
+    // Moderation + AI defaults
     status: "pending",
-    moderatorId: null,
-    reviewedAt: null,
-
-    // AI fields
     aiTags: [],
     aiCaption: "",
     aiFullDescription: "",
@@ -75,16 +83,7 @@ export async function deleteListing(id) {
 }
 
 /* -------------------------------------------------------
-   GET LISTING BY ID
-------------------------------------------------------- */
-export async function getListingById(id) {
-  const docRef = doc(db, "listings", id);
-  const snap = await getDoc(docRef);
-  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
-}
-
-/* -------------------------------------------------------
-   GET MY LISTINGS (USER DASHBOARD)
+   GET USER'S LISTINGS
 ------------------------------------------------------- */
 export async function getMyListings(uid) {
   if (!uid) return [];
@@ -96,15 +95,11 @@ export async function getMyListings(uid) {
   );
 
   const snap = await getDocs(q);
-
-  return snap.docs.map((d) => ({
-    id: d.id,
-    ...d.data(),
-  }));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
 /* -------------------------------------------------------
-   QUERY LISTINGS (MARKETPLACE SEARCH)
+   SEARCH LISTINGS
 ------------------------------------------------------- */
 export async function queryListings({
   minPrice = 0,
@@ -133,7 +128,7 @@ export async function queryListings({
 }
 
 /* -------------------------------------------------------
-   GET ALL LISTINGS (ADMIN)
+   ADMIN: GET ALL LISTINGS
 ------------------------------------------------------- */
 export async function getAllListings() {
   const snap = await getDocs(collection(db, "listings"));

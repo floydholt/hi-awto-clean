@@ -12,7 +12,7 @@ import { db } from "../firebase";
 import { useAuth } from "../firebase/AuthContext";
 
 export default function AdminUsers() {
-  const { user } = useAuth();
+  useAuth();
 
   const [users, setUsers] = useState([]);
   const [filter, setFilter] = useState("all");

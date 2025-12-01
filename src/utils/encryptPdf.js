@@ -1,5 +1,4 @@
 // src/utils/encryptPdf.js
-import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 
 /**
  * Encrypt an existing PDF using pdf-lib.

@@ -79,13 +79,7 @@ export default function ViewThread() {
   const MAX_FILE_MB = 25;
   const MAX_TOTAL_MB = 50;
   const bytesToMB = (b) => b / (1024 * 1024);
-  // UNIVERSAL SHARE (Instagram, TikTok, iOS/Android apps)
-const handleUniversalShare = async (url) => {
-  try {
-    const blob = await fetch(url).then((r) => r.blob());
-    const file = new File([blob], "hi-awto-share.jpg", {
-      type: blob.type,
-    });
+
 
     // If device supports sharing binary files
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
