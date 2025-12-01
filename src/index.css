@@ -488,3 +488,9 @@ nav {
   border-radius: 8px;
   font-size: 14px;
 }
+
+img {
+  width: 100%;
+  max-height: 120px;
+  object-fit: contain;
+}
