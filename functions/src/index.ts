@@ -1,4 +1,6 @@
-// src/index.ts
+// ================================================================
+// IMPORTS
+// ================================================================
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { onCall } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions";
@@ -10,15 +12,10 @@ import { runFraudCheck } from "./aiFraud.js";
 import { generateAIDescription } from "./aiDescription.js";
 import { recordFraudEvent } from "./aiFraudAnalytics.js";
 import { generateListingBrochure } from "./brochure.js";
-
 import { reRunAIProcessing } from "./reRunAI.js";
-import * as functionsV2 from "firebase-functions/v2/https";
-
-
-
 
 // ================================================================
-// LISTING PROCESSOR TRIGGER
+// LISTING PROCESSOR TRIGGER (v2)
 // ================================================================
 export const processListing = onDocumentWritten(
   { document: "listings/{id}", region: "us-central1" },
@@ -81,7 +78,7 @@ export const processListing = onDocumentWritten(
 );
 
 // ================================================================
-// USER ROLE -> AUTH CLAIMS SYNC
+// USER ROLE → AUTH CLAIMS SYNC (v2)
 // ================================================================
 export const onUserRoleWrite = onDocumentWritten(
   { document: "users/{uid}", region: "us-central1" },
@@ -90,7 +87,7 @@ export const onUserRoleWrite = onDocumentWritten(
     const afterSnap = event.data?.after;
 
     if (!afterSnap || !afterSnap.exists) {
-      logger.info("User doc deleted, clearing admin claim", { uid });
+      logger.info("User deleted, clearing admin claim", { uid });
       await auth.setCustomUserClaims(uid, { admin: false });
       return;
     }
@@ -101,7 +98,7 @@ export const onUserRoleWrite = onDocumentWritten(
 
     try {
       await auth.setCustomUserClaims(uid, { admin: isAdmin });
-      logger.info("Updated custom claims for user", { uid, role, isAdmin });
+      logger.info("Updated custom claims", { uid, role, isAdmin });
     } catch (err) {
       logger.error("Failed to update custom claims", {
         uid,
@@ -112,25 +109,29 @@ export const onUserRoleWrite = onDocumentWritten(
 );
 
 // ================================================================
-// BROCHURE GENERATOR (CALLABLE)
+// BROCHURE GENERATOR (CALLABLE - v2)
 // ================================================================
+interface BrochureRequest {
+  listingId: string;
+}
+
 export const createListingBrochure = onCall(
-  { region: "us-central1", timeoutSeconds: 300 },
+  { region: "us-central1" },
   async (request) => {
-    const listingId = request.data?.listingId;
-
-    if (!listingId || typeof listingId !== "string") {
-      throw new Error("listingId is required");
-    }
-
-    const storagePath = await generateListingBrochure(listingId);
-    return { storagePath };
+    const listingId = request.data.listingId as string;
+    if (!listingId) throw new Error("Missing listingId");
+    return await generateListingBrochure(listingId);
   }
 );
 
-export const reRunAI = functionsV2.onCall(async (data) => {
-  const listingId = data.listingId;
-  if (!listingId) throw new Error("Missing listingId");
-  return await reRunAIProcessing(listingId);
-});
-
+// ================================================================
+// RE-RUN AI PROCESSING (CALLABLE - v2)
+// ================================================================
+export const reRunAI = onCall(
+  { region: "us-central1" },
+  async (request) => {
+    const listingId = request.data.listingId as string;
+    if (!listingId) throw new Error("Missing listingId");
+    return await reRunAIProcessing(listingId);
+  }
+);

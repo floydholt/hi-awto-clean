@@ -1,5 +1,6 @@
 // src/aiVision.ts
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import fetch from "node-fetch";
 const apiKey = process.env.GEMINI_API_KEY;
 const client = apiKey ? new GoogleGenerativeAI(apiKey) : null;
 const model = client ? client.getGenerativeModel({ model: "gemini-1.5-flash" }) : null;

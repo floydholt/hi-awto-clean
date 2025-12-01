@@ -1,6 +1,8 @@
 // src/aiPhotoClassify.ts
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { PhotoClassificationResult } from "./types.js";
+import fetch from "node-fetch";
+
 
 const apiKey = process.env.GEMINI_API_KEY;
 const client = apiKey ? new GoogleGenerativeAI(apiKey) : null;
