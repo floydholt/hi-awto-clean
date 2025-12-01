@@ -1,44 +1,38 @@
-// src/utils/encryptPdf.js
+import { PDFDocument } from "pdf-lib";
 
 /**
- * Encrypt an existing PDF using pdf-lib.
- * Returns Uint8Array (encrypted binary).
+ * Encrypt an existing PDF buffer.
  */
-export async function encryptPdf(pdfBytes, { userPassword, ownerPassword }) {
-  // Load PDF
-  const pdfDoc = await PDFDocument.load(pdfBytes);
+export async function encryptPdf(buffer, password) {
+  const pdfDoc = await PDFDocument.load(buffer);
 
-  // Encrypt PDF with user & owner password
   pdfDoc.encrypt({
-    userPassword: userPassword,
-    ownerPassword: ownerPassword,
+    userPassword: password,
+    ownerPassword: password,
     permissions: {
-      printing: "highResolution",
-      modifying: false,
+      printing: "none",
       copying: false,
-      annotating: false,
-      fillingForms: false,
-      contentAccessibility: false,
-      documentAssembly: false,
+      modifying: false,
     },
   });
 
-  // Save encrypted PDF
-  const encryptedBytes = await pdfDoc.save();
-  return encryptedBytes;
+  return await pdfDoc.save();
 }
 
 /**
- * Trigger browser download of encrypted PDF file.
+ * Encrypts AND downloads the PDF directly.
+ * Provides backward compatibility for older imports.
  */
-export function downloadEncryptedPdf(filename, uint8Array) {
-  const blob = new Blob([uint8Array], { type: "application/pdf" });
+export async function downloadEncryptedPdf(buffer, password, filename = "encrypted.pdf") {
+  const encrypted = await encryptPdf(buffer, password);
+
+  const blob = new Blob([encrypted], { type: "application/pdf" });
   const url = URL.createObjectURL(blob);
 
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
 
   URL.revokeObjectURL(url);
 }

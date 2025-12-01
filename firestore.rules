@@ -3,15 +3,14 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ---------------------------
-    // Helper Functions
-    // ---------------------------
+    /* -----------------------------
+       Helper Functions
+    ----------------------------- */
     function isSignedIn() {
       return request.auth != null;
     }
 
     function isAdmin() {
-      // Custom claim set by onUserRoleWrite Cloud Function
       return isSignedIn() && request.auth.token.role == "admin";
     }
 
@@ -19,7 +18,7 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
 
-    // Client must NOT be able to write AI / server-only fields on listings.
+    // Client must NOT write AI/server-only fields
     function clientTouchesAIFields() {
       return
         "aiPricing" in request.resource.data ||
@@ -31,228 +30,107 @@ service cloud.firestore {
         "brochureUrl" in request.resource.data;
     }
 
-    // Safely get ownerId from resource or request.resource
     function listingOwnerId() {
-      // For creates, resource is null, so read from request.resource
       return resource == null
         ? request.resource.data.ownerId
         : resource.data.ownerId;
     }
 
-    // ---------------------------
-    // USERS COLLECTION
-    // ---------------------------
-    // Path: /users/{uid}
+    /* -----------------------------
+       Users
+    ----------------------------- */
     match /users/{uid} {
-      // Anyone signed in can read basic user info (for messaging, display names, etc.)
       allow read: if isSignedIn();
-
-      // User can create their own profile doc
       allow create: if isUser(uid);
-
-      // User can update their own profile, but CANNOT change privileged fields
       allow update: if isUser(uid)
-        // prevent client from changing role (admin only via custom claims + function)
         && request.resource.data.role == resource.data.role;
-
-      // Users should not be able to delete their user document from the client
-      allow delete: if false;
+      allow delete: if false; // no self-delete
     }
 
-    // ---------------------------
-    // LISTINGS COLLECTION
-    // ---------------------------
-    // Path: /listings/{listingId}
+    /* -----------------------------
+       Listings
+    ----------------------------- */
     match /listings/{listingId} {
-
-      // Listings are public to read
       allow read: if true;
 
-      // Create: signed-in user creating their own listing
       allow create: if isSignedIn()
         && request.resource.data.ownerId == request.auth.uid
         && !clientTouchesAIFields();
 
-      // Update: either admin OR listing owner
       allow update: if !clientTouchesAIFields() && (
-          isAdmin() ||
-          (isSignedIn() && listingOwnerId() == request.auth.uid)
-        );
+        isAdmin() ||
+        (isSignedIn() && listingOwnerId() == request.auth.uid)
+      );
 
-      // Delete: admin only (or comment this line and allow owner deletes too)
       allow delete: if isAdmin();
     }
 
-    // ---------------------------
-    // LEADS COLLECTION
-    // (e.g. when a buyer contacts a seller)
-    // ---------------------------
-    // Path: /leads/{leadId}
-    // Expected fields: listingId, listingOwnerId, buyerId, message, createdAt, etc.
+    /* -----------------------------
+       Leads
+    ----------------------------- */
     match /leads/{leadId} {
-
-      // Anyone signed in can submit a lead
       allow create: if isSignedIn()
         && request.resource.data.buyerId == request.auth.uid;
 
-      // Read: only admins, listing owner, or the buyer themselves
       allow read: if isAdmin()
         || (isSignedIn()
           && (request.auth.uid == resource.data.listingOwnerId
               || request.auth.uid == resource.data.buyerId));
 
-      // Updates usually not needed from client; restrict to admin
-      allow update: if isAdmin();
-
-      // Deletion also restricted to admin
-      allow delete: if isAdmin();
+      allow update, delete: if isAdmin();
     }
 
-    // ---------------------------
-    // ADMIN-ONLY COLLECTIONS
-    // adminLogs, fraudEvents, adminMetrics, etc.
-    // ---------------------------
-    match /adminLogs/{docId} {
-      allow read, write: if isAdmin();
-    }
-
-    match /fraudEvents/{docId} {
-      allow read, write: if isAdmin();
-    }
-
-    match /adminMetrics/{docId} {
-      allow read, write: if isAdmin();
-    }
-
-    // Add more admin-only collections here as needed:
-    // match /systemSettings/{docId} { allow read, write: if isAdmin(); }
-
-    // ---------------------------
-    // MESSAGING (generic example)
-    // Adjust collection paths to match your schema if different.
-    // ---------------------------
-
-    // Thread doc: contains participantIds: [uid1, uid2, ...]
+    /* -----------------------------
+       Threads + Messages (Messaging)
+    ----------------------------- */
     match /threads/{threadId} {
 
-      // A user can read a thread if they are a participant OR an admin
       allow read: if isAdmin()
         || (isSignedIn() && request.auth.uid in resource.data.participantIds);
 
-      // Create a thread if the user is one of the participants
       allow create: if isSignedIn()
         && request.auth.uid in request.resource.data.participantIds;
 
-      // Update: only admin or participant
       allow update: if isAdmin()
         || (isSignedIn() && request.auth.uid in resource.data.participantIds);
 
-      // Delete: admin only
       allow delete: if isAdmin();
 
-      // Subcollection: /threads/{threadId}/messages/{messageId}
       match /messages/{messageId} {
-
-        // Read messages if you can read the thread
         allow read: if isAdmin()
           || (isSignedIn() && request.auth.uid in resource.data.participantIds);
 
-        // Create a message if you are a participant
         allow create: if isSignedIn()
           && request.auth.uid in get(/databases/$(database)/documents/threads/$(threadId)).data.participantIds
           && request.resource.data.senderId == request.auth.uid;
 
-        // Editing/deleting messages from the client is generally not needed; restrict to admin
         allow update, delete: if isAdmin();
       }
     }
 
-    // ---------------------------
-    // FALLBACK: DENY EVERYTHING ELSE
-    // ---------------------------
+    /* -----------------------------
+       Admin Collections
+    ----------------------------- */
+    match /adminLogs/{docId} {
+      allow read: if isAdmin();
+      allow write: if false; // system-only
+    }
+
+    match /fraudEvents/{docId} {
+      allow read: if isAdmin();
+      allow write: if false; // system-only
+    }
+
+    match /adminMetrics/{docId} {
+      allow read: if isAdmin();
+      allow write: if false; // system-only
+    }
+
+    /* -----------------------------
+       FALLBACK
+    ----------------------------- */
     match /{document=**} {
       allow read, write: if false;
-    }
-  }
-}
-
-match /listings/{id} {
-  allow update: if isAdmin();
-  allow read: if isAdmin();
-}
-
-match /users/{uid} {
-  allow read: if isAdmin();
-  allow update: if isAdmin();
-}
-
-match /listings/{id} {
-  allow read, update: if isAdmin();
-}
-
-match /users/{uid} {
-  allow read, update: if isAdmin();
-}
-
-match /fraudEvents/{id} {
-  allow read: if isAdmin();
-}
-
-match /leads/{id} {
-  allow read: if isAdmin();
-}
-
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isAdmin() {
-      return isSignedIn() && request.auth.token.role == 'admin';
-    }
-
-    // -------------------------
-    // Listings
-    // -------------------------
-    match /listings/{id} {
-      allow read: if true; // public listings
-      allow create: if isSignedIn();
-      allow update, delete: if isAdmin();
-    }
-
-    // -------------------------
-    // Users
-    // -------------------------
-    match /users/{uid} {
-      allow read: if isAdmin() || request.auth.uid == uid;
-      allow update: if isAdmin();
-    }
-
-    // -------------------------
-    // Admin Logs
-    // -------------------------
-    match /adminLogs/{logId} {
-      allow read: if isAdmin();
-      allow write: if false; // system only
-    }
-
-    // -------------------------
-    // Fraud Events
-    // -------------------------
-    match /fraudEvents/{id} {
-      allow read: if isAdmin();
-      allow write: if false;
-    }
-
-    // -------------------------
-    // Leads
-    // -------------------------
-    match /leads/{id} {
-      allow create: if true;
-      allow read, update, delete: if isAdmin();
     }
   }
 }
