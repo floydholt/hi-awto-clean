@@ -505,4 +505,3 @@ export default function AdminDashboard() {
     </div>
   );
 }
-// FIX 3: Removed stray closing brace }
