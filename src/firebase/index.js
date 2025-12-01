@@ -1,27 +1,17 @@
 // src/firebase/index.js
-
-// Firebase SDK imports
-import { initializeApp } from "firebase/app";
-import {
-  getAuth
-} from "firebase/auth";
-import {
-  getFirestore
-} from "firebase/firestore";
-import {
-  getStorage
-} from "firebase/storage";
-
-// Local config import
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
+import { getFunctions } from "firebase/functions";
 import { firebaseConfig } from "./config";
 
-// Initialize Firebase app
-const app = initializeApp(firebaseConfig);
+// Prevent duplicate initialization (fixes [DEFAULT] already exists)
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Export initialized services
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+export const functions = getFunctions(app, "us-central1");
 
-// Allow importing the app if needed
 export default app;

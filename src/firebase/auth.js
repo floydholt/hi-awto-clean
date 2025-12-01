@@ -1,68 +1,63 @@
 // src/firebase/auth.js
+import { auth } from "./index.js";
 import {
-  getAuth,
   GoogleAuthProvider,
   OAuthProvider,
   signInWithPopup,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  signOut,
   sendPasswordResetEmail,
-  updateProfile,
 } from "firebase/auth";
-import { app } from "./config.js";
 
-// Use the already-initialized app from config.js
-export const auth = getAuth(app);
-
-// -------------------------
-// Email/password auth
-// -------------------------
-export async function loginUser({ email, password }) {
+/* -------------------------------------------
+   EMAIL/PASSWORD LOGIN
+------------------------------------------- */
+export function login(email, password) {
   return signInWithEmailAndPassword(auth, email, password);
 }
 
-export async function registerUser({ email, password, displayName }) {
-  const cred = await createUserWithEmailAndPassword(auth, email, password);
+// Legacy compatibility
+export const loginUser = login;
 
-  if (displayName) {
-    await updateProfile(cred.user, { displayName });
-  }
-
-  return cred;
-}
-
-export async function logout() {
-  return signOut(auth);
-}
-
-// -------------------------
-// Password reset
-// -------------------------
-export async function resetPassword(email) {
-  return sendPasswordResetEmail(auth, email);
-}
-
-// -------------------------
-// Google Sign-In
-// -------------------------
+/* -------------------------------------------
+   GOOGLE LOGIN
+------------------------------------------- */
 export async function signInWithGoogle() {
   const provider = new GoogleAuthProvider();
-  return signInWithPopup(auth, provider);
+  return await signInWithPopup(auth, provider);
 }
 
-// Alias for compatibility
+// Legacy compatibility alias
 export const loginWithGoogle = signInWithGoogle;
 
-// -------------------------
-// Apple Sign-In
-// -------------------------
+
+/* -------------------------------------------
+   APPLE LOGIN
+------------------------------------------- */
 export async function signInWithApple() {
   const provider = new OAuthProvider("apple.com");
   provider.addScope("email");
   provider.addScope("name");
-  return signInWithPopup(auth, provider);
+
+  return await signInWithPopup(auth, provider);
 }
 
-// Alias for compatibility
+// Legacy compatibility alias
 export const loginWithApple = signInWithApple;
+
+/* -------------------------------------------
+   REGISTER EMAIL/PASSWORD
+------------------------------------------- */
+export function register(email, password) {
+  return createUserWithEmailAndPassword(auth, email, password);
+}
+
+// Legacy compatibility
+export const registerUser = register;
+
+/* -------------------------------------------
+   PASSWORD RESET
+------------------------------------------- */
+export function resetPassword(email) {
+  return sendPasswordResetEmail(auth, email);
+}

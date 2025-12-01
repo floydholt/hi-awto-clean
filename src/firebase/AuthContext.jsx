@@ -1,51 +1,33 @@
+// src/firebase/AuthContext.jsx
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { auth } from "./index.js";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
-import { auth } from "./auth";
-import { db } from "./config.js";   // or wherever you export your Firestore instance
 
+const AuthContext = createContext(null);
 
-
-const AuthContext = createContext();
+export function useAuth() {
+  return useContext(AuthContext);
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [role, setRole] = useState("user");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (!firebaseUser) {
-        setUser(null);
-        setRole("user");
-        setLoading(false);
-        return;
-      }
-
-      setUser(firebaseUser);
-
-      // Load role document from Firestore
-      const ref = doc(db, "users", firebaseUser.uid);
-      const snapshot = await getDoc(ref);
-      if (snapshot.exists()) {
-        setRole(snapshot.data().role || "user");
-      } else {
-        setRole("user");
-      }
-
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
       setLoading(false);
     });
-
     return () => unsub();
   }, []);
 
-  const logout = () => signOut(auth);
+  const logout = async () => {
+    await signOut(auth);
+  };
 
   return (
-    <AuthContext.Provider value={{ user, role, loading, logout }}>
-      {children}
+    <AuthContext.Provider value={{ user, logout }}>
+      {!loading && children}
     </AuthContext.Provider>
   );
 }
-
-export const useAuth = () => useContext(AuthContext);

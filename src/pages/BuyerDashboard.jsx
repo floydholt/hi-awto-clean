@@ -8,7 +8,8 @@ import {
   orderBy,
   limit,
 } from "firebase/firestore";
-import { db } from "../firebase/config.js";
+import { db } from "../firebase/index.js";
+
 
 export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);

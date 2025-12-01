@@ -1,7 +1,7 @@
 // client/src/components/CreateAccount.js
 import React, { useState } from "react";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth, db } from "../firebaseConfig";
+import { auth, db } from "../firebase/index.js";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
 export default function CreateAccount() {

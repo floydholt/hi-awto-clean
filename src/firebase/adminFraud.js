@@ -1,14 +1,20 @@
 // src/firebase/adminFraud.js
+import { db } from "./index.js";
 import {
   collection,
   query,
-  where,
   orderBy,
-  updateDoc,
-  onSnapshot,
-  doc,
+  getDocs,
 } from "firebase/firestore";
-import { db } from "./config.js";
+
+export async function getFraudEvents() {
+  const ref = collection(db, "fraudEvents");
+  const q = query(ref, orderBy("createdAt", "desc"));
+
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
 
 // Stream ALL listings with fraudScore or fraudReasons
 export function listenToFraudListings(callback) {

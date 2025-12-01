@@ -5,7 +5,8 @@ import {
   where,
   onSnapshot,
 } from "firebase/firestore";
-import { db } from "../firebase/config";
+import { db } from "../firebase/index.js";
+
 
 export default function useUnreadMessages(userId) {
   const [count, setCount] = useState(0);

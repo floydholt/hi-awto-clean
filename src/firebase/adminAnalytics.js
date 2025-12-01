@@ -1,167 +1,244 @@
 // src/firebase/adminAnalytics.js
+import { db } from "./index.js";
 import {
-  doc,
-  getDoc,
-  onSnapshot,
+  collection,
   query,
   orderBy,
   where,
+  doc,
+  getDoc,
+  getDocs,
+  onSnapshot,
 } from "firebase/firestore";
-import { collection, getDocs } from "firebase/firestore";
-import { db } from "./config.js";
 
+/* ---------------------------------------------------------
+   REALTIME ADMIN METRIC STREAMS
+--------------------------------------------------------- */
 
+export function streamNewUsers(callback) {
+  const q = query(
+    collection(db, "users"),
+    orderBy("createdAt", "desc")
+  );
 
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+  });
+}
 
-/* -----------------------------------------------------------
-   REAL-TIME LISTING COUNTS
------------------------------------------------------------ */
+export function streamNewListings(callback) {
+  const q = query(
+    collection(db, "listings"),
+    orderBy("createdAt", "desc")
+  );
+
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+  });
+}
+
+export function streamFraudEvents(callback) {
+  const q = query(
+    collection(db, "fraudEvents"),
+    orderBy("createdAt", "desc")
+  );
+
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+  });
+}
+
+/* ---------------------------------------------------------
+   FETCH SPECIFIC METRICS
+--------------------------------------------------------- */
+
+export async function getListingOwner(listingId) {
+  const ref = doc(db, "listings", listingId);
+  const snap = await getDoc(ref);
+  return snap.exists() ? snap.data().ownerId : null;
+}
+
+export async function getUserDetails(uid) {
+  const ref = doc(db, "users", uid);
+  const snap = await getDoc(ref);
+  return snap.exists() ? snap.data() : null;
+}
+
+/* ---------------------------------------------------------
+   LISTING COUNTS LISTENER (legacy support)
+--------------------------------------------------------- */
+
 export function listenToListingCounts(callback) {
-  return onSnapshot(collection(db, "listings"), (snap) => {
-    const all = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const ref = collection(db, "listings");
 
-    const approved = all.filter((l) => l.status === "approved").length;
-    const pending = all.filter((l) => l.status === "pending").length;
-    const rejected = all.filter((l) => l.status === "rejected").length;
+  return onSnapshot(ref, (snap) => {
+    const total = snap.size;
 
-    const recentListings = all
-      .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
-      .slice(0, 10);
+    const published = snap.docs.filter(
+      (d) => d.data().status === "published"
+    ).length;
+
+    const pending = snap.docs.filter(
+      (d) => d.data().status === "pending"
+    ).length;
+
+    const rejected = snap.docs.filter(
+      (d) => d.data().status === "rejected"
+    ).length;
 
     callback({
-      total: all.length,
-      approved,
+      total,
+      published,
       pending,
       rejected,
-      recentListings,
     });
   });
 }
 
-/* -----------------------------------------------------------
-   REAL-TIME USER COUNTS
------------------------------------------------------------ */
+/* ---------------------------------------------------------
+   USER COUNTS LISTENER (legacy support)
+--------------------------------------------------------- */
+
 export function listenToUserCounts(callback) {
-  return onSnapshot(collection(db, "users"), (snap) => {
-    const all = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const ref = collection(db, "users");
 
-    const admins = all.filter((u) => u.role === "admin").length;
+  return onSnapshot(ref, (snap) => {
+    const total = snap.size;
 
-    const recentUsers =
-      all
-        .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
-        .slice(0, 10) ?? [];
+    // safe role parsing
+    const roles = snap.docs.map((d) => d.data().role || "unknown");
+
+    const admins = roles.filter((r) => r === "admin").length;
+    const buyers = roles.filter((r) => r === "buyer").length;
+    const sellers = roles.filter((r) => r === "seller").length;
+    const unknown = roles.filter(
+      (r) => !["admin", "buyer", "seller"].includes(r)
+    ).length;
 
     callback({
-      total: all.length,
+      total,
       admins,
-      recentUsers,
+      buyers,
+      sellers,
+      unknown,
     });
   });
 }
 
-/* -----------------------------------------------------------
-   REAL-TIME THREAD COUNTS
------------------------------------------------------------ */
+/* ---------------------------------------------------------
+   THREAD COUNTS LISTENER (legacy support)
+--------------------------------------------------------- */
+
 export function listenToThreadCounts(callback) {
-  return onSnapshot(collection(db, "threads"), (snap) => {
-    const all = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    const activeLast7d = all.filter((t) => {
-      const ts = t.updatedAt?.seconds;
-      if (!ts) return false;
-      return Date.now() / 1000 - ts < 7 * 24 * 3600;
-    }).length;
+  const ref = collection(db, "threads");
+
+  return onSnapshot(ref, (snap) => {
+    const total = snap.size;
+
+    const statuses = snap.docs.map(
+      (d) => d.data().status || "active"
+    );
+
+    const active = statuses.filter((s) => s === "active").length;
+    const closed = statuses.filter((s) => s === "closed").length;
+    const unknown = statuses.filter(
+      (s) => !["active", "closed"].includes(s)
+    ).length;
 
     callback({
-      totalThreads: all.length,
-      activeLast7d,
+      total,
+      active,
+      closed,
+      unknown,
     });
   });
 }
 
-/* -----------------------------------------------------------
-   TIME-SERIES: NEW LISTINGS TREND
------------------------------------------------------------ */
+/* ---------------------------------------------------------
+   LOAD LISTINGS TIME SERIES (for charts)
+--------------------------------------------------------- */
 export async function loadListingsTimeSeries(days = 7) {
-  const since = Date.now() - days * 24 * 3600 * 1000;
+  const start = Date.now() - days * 24 * 60 * 60 * 1000;
 
-  const qRef = query(
+  const q = query(
     collection(db, "listings"),
-    where("createdAt", ">=", new Date(since)),
+    where("createdAt", ">=", new Date(start)),
     orderBy("createdAt", "asc")
   );
 
-  const snap = await getDocs(qRef);
-  const points = {};
+  const snap = await getDocs(q);
 
-  snap.forEach((doc) => {
-    const d = doc.data();
-    const dayKey = new Date(d.createdAt.toDate()).toLocaleDateString();
-    points[dayKey] = (points[dayKey] || 0) + 1;
+  const buckets = {};
+
+  snap.forEach((d) => {
+    const ts = d.data().createdAt?.toDate?.() || new Date();
+    const label = ts.toLocaleDateString();
+
+    if (!buckets[label]) buckets[label] = 0;
+    buckets[label]++;
   });
 
-  return Object.keys(points).map((label) => ({
+  return Object.keys(buckets).map((label) => ({
     label,
-    count: points[label],
+    count: buckets[label],
   }));
 }
 
-/* -----------------------------------------------------------
-   TIME-SERIES: FRAUD RISK TREND
-   (🔥 YOU WERE MISSING THIS)
------------------------------------------------------------ */
-export async function loadFraudTrends(days = 7) {
-  const since = Date.now() - days * 24 * 3600 * 1000;
+/* ---------------------------------------------------------
+   LOAD AI INSIGHTS (AI Summary Panel)
+--------------------------------------------------------- */
+export async function loadAiInsights(days = 7) {
+  return "AI insights not available (placeholder).";
+}
 
-  const qRef = query(
+/* ---------------------------------------------------------
+   LOAD FRAUD EVENTS (for FraudReportPanel)
+--------------------------------------------------------- */
+export async function loadFraudEvents(days = 7) {
+  const start = Date.now() - days * 24 * 60 * 60 * 1000;
+
+  const q = query(
     collection(db, "fraudEvents"),
-    where("timestamp", ">=", since),
-    orderBy("timestamp", "asc")
+    where("createdAt", ">=", new Date(start)),
+    orderBy("createdAt", "asc")
   );
 
-  const snap = await getDocs(qRef);
+  const snap = await getDocs(q);
+
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+/* ---------------------------------------------------------
+   LOAD LISTINGS FOR ADMIN (moderation)
+--------------------------------------------------------- */
+export async function loadListingsForAdmin() {
+  const q = query(collection(db, "listings"), orderBy("createdAt", "desc"));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+/* ---------------------------------------------------------
+   FRAUD RISK TIME SERIES (chart)
+--------------------------------------------------------- */
+export async function loadFraudTrends(days = 7) {
+  const start = Date.now() - days * 24 * 60 * 60 * 1000;
+
+  const q = query(
+    collection(db, "fraudEvents"),
+    where("createdAt", ">=", new Date(start)),
+    orderBy("createdAt", "asc")
+  );
+
+  const snap = await getDocs(q);
 
   return snap.docs.map((d) => ({
-    timestamp: d.data().timestamp,
-    score: d.data().score,
-    riskLevel: d.data().riskLevel,
+    timestamp: d.data().createdAt?.toDate?.() || new Date(),
+    score: d.data().score || 0,
+    riskLevel:
+      d.data().score >= 80
+        ? "high"
+        : d.data().score >= 50
+        ? "medium"
+        : "low",
   }));
-}
-
-/* -----------------------------------------------------------
-   LOAD RAW FRAUD EVENTS (for PDF reports)
------------------------------------------------------------ */
-export async function loadFraudEvents(days = 7) {
-  const since = Date.now() - days * 24 * 3600 * 1000;
-
-  const qRef = query(
-    collection(db, "fraudEvents"),
-    where("timestamp", ">=", since),
-    orderBy("timestamp", "desc")
-  );
-
-  const snap = await getDocs(qRef);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-}
-
-/* -----------------------------------------------------------
-   LOAD ALL LISTINGS FOR ADMIN (for PDF)
------------------------------------------------------------ */
-export async function loadListingsForAdmin() {
-  const snap = await getDocs(collection(db, "listings"));
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-}
-
-/* -----------------------------------------------------------
-   AI-GENERATED INSIGHTS (Gemini summary)
------------------------------------------------------------ */
-export async function loadAiInsights(days = 7) {
-  try {
-    const docRef = doc(db, "adminAnalytics", `insights_${days}d`);
-    const snap = await getDoc(docRef);
-    return snap.exists() ? snap.data().insights || "" : "";
-  } catch (err) {
-    console.error("AI Insights load error", err);
-    return "";
-  }
 }

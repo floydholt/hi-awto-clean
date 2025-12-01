@@ -1,5 +1,12 @@
+import { functions } from "./index.js";
 import { httpsCallable } from "firebase/functions";
-import { functions } from "./config.js";
+
+export async function generateBrochure(listingId) {
+  const fn = httpsCallable(functions, "createListingBrochure");
+  const result = await fn({ listingId });
+  return result.data;
+}
+
 
 /**
  * Calls the Cloud Function to generate an MLS-style brochure

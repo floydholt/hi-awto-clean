@@ -1,150 +1,125 @@
 // src/firebase/messages.js
+import { db } from "./index.js";
 import {
   collection,
-  addDoc,
   doc,
   getDoc,
   getDocs,
+  addDoc,
   updateDoc,
   query,
   where,
   orderBy,
-  serverTimestamp,
   writeBatch,
+  serverTimestamp,
+  onSnapshot,
 } from "firebase/firestore";
-import { db } from "./config";
 
-const THREADS_COL = "threads";
 
-// ---------------------------------------------
-// Single thread by id
-// ---------------------------------------------
+
+/* ---------------------------------------------------------
+   THREADS
+--------------------------------------------------------- */
+
 export async function getThread(threadId) {
-  if (!threadId) return null;
-  const ref = doc(db, THREADS_COL, threadId);
+  const ref = doc(db, "threads", threadId);
   const snap = await getDoc(ref);
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
 }
 
-// ---------------------------------------------
-// Threads for a specific user (inbox)
-// ---------------------------------------------
-export async function getUserThreads(userId) {
-  if (!userId) return [];
-  const q = query(
-    collection(db, THREADS_COL),
-    where("participants", "array-contains", userId),
-    orderBy("updatedAt", "desc")
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+export function streamThread(threadId, callback) {
+  const ref = doc(db, "threads", threadId);
+
+  return onSnapshot(ref, (snap) => {
+    if (!snap.exists()) return callback(null);
+    callback({ id: snap.id, ...snap.data() });
+  });
 }
 
-// ---------------------------------------------
-// ALL threads (admin inbox)
-// ---------------------------------------------
-export async function getAllThreads() {
-  const q = query(
-    collection(db, THREADS_COL),
-    orderBy("updatedAt", "desc")
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-}
+/* ---------------------------------------------------------
+   MESSAGES
+--------------------------------------------------------- */
 
-// ---------------------------------------------
-// Messages in a thread (non-realtime helper)
-// ---------------------------------------------
-export async function getThreadMessages(threadId) {
-  if (!threadId) return [];
-  const msgsRef = collection(db, `${THREADS_COL}/${threadId}/messages`);
-  const q = query(msgsRef, orderBy("createdAt", "asc"));
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-}
-
-// ---------------------------------------------
-// Send a message in an existing thread
-// message: { text, senderId, senderName, attachments?, readBy? }
-// ---------------------------------------------
 export async function sendMessage(threadId, message) {
-  if (!threadId) throw new Error("threadId is required");
-
-  const threadRef = doc(db, THREADS_COL, threadId);
-  const msgsRef = collection(threadRef, "messages");
-  const now = serverTimestamp();
-
-  await addDoc(msgsRef, {
+  const msg = {
     ...message,
-    pinned: message.pinned || false,
-    createdAt: now,
-    updatedAt: now,
-  });
+    threadId,
+    createdAt: serverTimestamp(),
+  };
 
+  await addDoc(collection(db, "messages"), msg);
+
+  // update thread last message
+  const threadRef = doc(db, "threads", threadId);
   await updateDoc(threadRef, {
-    updatedAt: now,
-    lastMessage: message.text || "[Attachment]",
-    lastSenderId: message.senderId || null,
+    lastMessage: msg.text ?? "",
+    lastUpdated: serverTimestamp(),
   });
 }
 
-// ---------------------------------------------
-// Typing indicator
-// ---------------------------------------------
-export async function setThreadTyping(threadId, userId, isTyping) {
-  if (!threadId || !userId) return;
-  const threadRef = doc(db, THREADS_COL, threadId);
-
-  await updateDoc(threadRef, {
-    [`typing.${userId}`]: !!isTyping,
-  });
-}
-
-// ---------------------------------------------
-// Mark messages as read
-// ---------------------------------------------
-export async function markThreadMessagesRead(threadId, userId) {
-  if (!threadId || !userId) return;
-
-  const msgsRef = collection(db, `${THREADS_COL}/${threadId}/messages`);
-
-  // Simple filter; adjust if needed based on your data
+export function streamMessages(threadId, callback) {
   const q = query(
-    msgsRef,
-    where("readBy", "not-in", [[userId]])
+    collection(db, "messages"),
+    where("threadId", "==", threadId),
+    orderBy("createdAt", "asc")
+  );
+
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+  });
+}
+
+/* ---------------------------------------------------------
+   MESSAGE READ RECEIPTS
+--------------------------------------------------------- */
+
+export async function markThreadMessagesRead(threadId, userId) {
+  const q = query(
+    collection(db, "messages"),
+    where("threadId", "==", threadId)
   );
 
   const snap = await getDocs(q);
-  if (snap.empty) return;
-
   const batch = writeBatch(db);
 
-  snap.docs.forEach((docSnap) => {
-    const data = docSnap.data();
-    const readBy = Array.isArray(data.readBy) ? data.readBy : [];
+  snap.forEach((docSnap) => {
+    const d = docSnap.data();
+    const ref = doc(db, "messages", docSnap.id);
+
+    const readBy = d.readBy ?? [];
     if (!readBy.includes(userId)) {
-      batch.update(docSnap.ref, {
-        readBy: [...readBy, userId],
-      });
+      batch.update(ref, { readBy: [...readBy, userId] });
     }
   });
 
-  await batch.commit();
+  return batch.commit();
 }
 
-// ---------------------------------------------
-// Pin / unpin a message
-// ---------------------------------------------
-export async function pinMessage(threadId, messageId, value) {
-  if (!threadId || !messageId) return;
+/* ---------------------------------------------------------
+   ADMIN: GET ALL THREADS (legacy support)
+--------------------------------------------------------- */
 
-  const msgRef = doc(
-    db,
-    `${THREADS_COL}/${threadId}/messages/${messageId}`
+export async function getAllThreads() {
+  const q = query(
+    collection(db, "threads"),
+    orderBy("lastUpdated", "desc")
   );
 
-  await updateDoc(msgRef, {
-    pinned: !!value,
-    updatedAt: serverTimestamp(),
-  });
+  const snap = await getDocs(q);
+
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+
+
+export async function getUserThreads(userId) {
+  const q = query(
+    collection(db, "threads"),
+    where("participantIds", "array-contains", userId),
+    orderBy("lastUpdated", "desc")
+  );
+
+  const snap = await getDocs(q);
+
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }

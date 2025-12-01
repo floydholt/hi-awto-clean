@@ -1,14 +1,18 @@
 // src/firebase/adminListings.js
+import { db } from "./index.js";
 import {
   collection,
   query,
-  where,
-  updateDoc,
-  doc,
   orderBy,
-  onSnapshot,
+  getDocs,
 } from "firebase/firestore";
-import { db } from "./config.js";
+
+export async function getAllListingsAdmin() {
+  const q = query(collection(db, "listings"), orderBy("createdAt", "desc"));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
 
 // Stream ALL listings (pending, approved, rejected)
 export function listenToModerationListings(callback) {

@@ -1,5 +1,12 @@
-import { collection, query, where, getDocs } from "firebase/firestore";
-import { db } from "./config";
+import { functions } from "./index.js";
+import { httpsCallable } from "firebase/functions";
+
+export async function searchWithAI(queryText) {
+  const fn = httpsCallable(functions, "searchListingsAI");
+  const result = await fn({ query: queryText });
+  return result.data;
+}
+
 
 export async function searchListingsAI(text) {
   const all = await getDocs(collection(db, "listings"));

@@ -1,98 +1,82 @@
 // src/firebase/uploadManager.js
-import { ref, uploadBytesResumable, uploadBytes, getDownloadURL } from "firebase/storage";
-import { storage } from "./config.js";
+import { storage } from "./index.js";
+import {
+  ref,
+  uploadBytes,
+  uploadBytesResumable,
+  getDownloadURL,
+} from "firebase/storage";
 
-// ------------------------------------------
-// 1) Chat attachments with progress
-// ------------------------------------------
-export async function uploadChatAttachmentsWithProgress(threadId, files, onProgress) {
-  if (!threadId || !files || files.length === 0) return [];
-
-  const uploads = files.map(
-    (file, index) =>
-      new Promise((resolve, reject) => {
-        const safeName = file.name.replace(/\s+/g, "_");
-        const path = `chatAttachments/${threadId}/${Date.now()}_${safeName}`;
-        const fileRef = ref(storage, path);
-
-        const task = uploadBytesResumable(fileRef, file);
-
-        // Progress tracking
-        task.on(
-          "state_changed",
-          (snapshot) => {
-            const percent = Math.round(
-              (snapshot.bytesTransferred / snapshot.totalBytes) * 100
-            );
-
-            if (typeof onProgress === "function") {
-              onProgress(index, percent);
-            }
-          },
-          reject,
-          async () => {
-            const url = await getDownloadURL(task.snapshot.ref);
-            resolve({
-              url,
-              name: file.name,
-              contentType: file.type,
-              size: file.size,
-            });
-          }
-        );
-      })
-  );
-
-  return Promise.all(uploads);
+/* ---------------------------------------------------------
+   SIMPLE UPLOAD (no progress)
+--------------------------------------------------------- */
+export async function uploadImage(file, path) {
+  const storageRef = ref(storage, path);
+  await uploadBytes(storageRef, file);
+  return await getDownloadURL(storageRef);
 }
 
-// ------------------------------------------
-// 2) Listing images (CreateListing)
-//    Signature: uploadListingImages(files: File[]) => Promise<string[]>
-// ------------------------------------------
-export async function uploadListingImages(files) {
-  if (!files || files.length === 0) return [];
+/* ---------------------------------------------------------
+   RESUMABLE UPLOAD (with progress)
+--------------------------------------------------------- */
+export function uploadResumable(file, path, onProgress, onComplete, onError) {
+  const storageRef = ref(storage, path);
+  const uploadTask = uploadBytesResumable(storageRef, file);
 
-  const uploads = files.map(
-    (file) =>
-      new Promise((resolve, reject) => {
-        const safeName = file.name.replace(/\s+/g, "_");
-        const path = `listingImages/${Date.now()}_${safeName}`;
-        const fileRef = ref(storage, path);
-
-        const task = uploadBytesResumable(fileRef, file);
-
-        task.on(
-          "state_changed",
-          () => {
-            // We don't surface per-image progress here for listings,
-            // but this is where you'd do it if you wanted.
-          },
-          reject,
-          async () => {
-            const url = await getDownloadURL(task.snapshot.ref);
-            resolve(url);
-          }
-        );
-      })
+  uploadTask.on(
+    "state_changed",
+    (snapshot) => {
+      if (onProgress) onProgress(snapshot);
+    },
+    (error) => {
+      if (onError) onError(error);
+    },
+    async () => {
+      const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+      if (onComplete) onComplete(downloadURL);
+    }
   );
 
-  return Promise.all(uploads);
+  return uploadTask;
 }
 
-// ------------------------------------------
-// 3) Avatar upload (Profile)
-//    Signature: uploadAvatar(file: File) => Promise<string>
-// ------------------------------------------
-export async function uploadAvatar(file) {
-  if (!file) return "";
+/* ---------------------------------------------------------
+   UPLOAD MULTIPLE LISTING IMAGES (legacy support)
+--------------------------------------------------------- */
 
-  const safeName = file.name.replace(/\s+/g, "_");
-  const path = `avatars/${Date.now()}_${safeName}`;
-  const fileRef = ref(storage, path);
+export async function uploadListingImages(listingId, files) {
+  if (!listingId) throw new Error("listingId is required");
+  if (!files?.length) return [];
 
-  // Avatar is usually single & small, simple upload is fine
-  const snapshot = await uploadBytes(fileRef, file);
-  const url = await getDownloadURL(snapshot.ref);
-  return url;
+  const urls = [];
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+
+    const path = `listings/${listingId}/${Date.now()}_${file.name}`;
+    const storageRef = ref(storage, path);
+
+    await uploadBytes(storageRef, file);
+    const downloadURL = await getDownloadURL(storageRef);
+
+    urls.push(downloadURL);
+  }
+
+  return urls;
+}
+
+/* ---------------------------------------------------------
+   UPLOAD USER AVATAR (legacy support)
+--------------------------------------------------------- */
+
+export async function uploadAvatar(userId, file) {
+  if (!userId) throw new Error("userId is required");
+  if (!file) throw new Error("Avatar file is required");
+
+  const path = `avatars/${userId}/${Date.now()}_${file.name}`;
+  const storageRef = ref(storage, path);
+
+  await uploadBytes(storageRef, file);
+
+  return await getDownloadURL(storageRef);
 }

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { loginUser, signInWithGoogle, signInWithApple } from "../firebase/auth.js";
+import { login, signInWithGoogle, signInWithApple } from "../firebase/auth.js";
 
 export default function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
@@ -16,7 +16,7 @@ export default function Login() {
     setError("");
     setLoading(true);
     try {
-      await loginUser(form);
+      await login(form);
       window.location.href = "/";
     } catch (err) {
       setError(err.message || "Failed to login");

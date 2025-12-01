@@ -2,8 +2,9 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../firebase/AuthContext.jsx";
 import { uploadAvatar } from "../firebase/uploadManager.js";
-import { auth } from "../firebase/auth.js";
-import { db } from "../firebase/config.js";
+import { auth } from "../firebase/index.js";
+import { db } from "../firebase/index.js";
+
 import {
   doc,
   getDoc,
