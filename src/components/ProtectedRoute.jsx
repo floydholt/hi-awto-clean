@@ -1,17 +1,20 @@
+// src/components/ProtectedRoute.jsx
+
 import React from "react";
 import { Navigate } from "react-router-dom";
-import { useAuth } from "../firebase/AuthContext.jsx";
+import { useAuth } from "../firebase/AuthContext";
 
-export default function ProtectedRoute({ children, adminOnly }) {
-  const { user, role, loading } = useAuth();
+export default function ProtectedRoute({ children }) {
+  const { currentUser, loading } = useAuth();
 
-  if (loading) return <div className="p-4">Loading...</div>;
+  // Still loading auth state → don't render anything yet
+  if (loading) return null;
 
-  if (!user) return <Navigate to="/login" />;
-
-  if (adminOnly && role !== "admin") {
-    return <Navigate to="/" />;
+  // If user is NOT logged in → redirect to login page
+  if (!currentUser) {
+    return <Navigate to="/login" replace />;
   }
 
+  // If user IS logged in → allow page to render
   return children;
 }

@@ -7,11 +7,9 @@ import {
   where,
   orderBy,
   limit,
-  doc,
-  updateDoc,
 } from "firebase/firestore";
-import { db } from "../firebase/index.js";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { db, functions } from "../firebase";
+import { httpsCallable } from "firebase/functions";
 
 export default function AdminListings() {
   const [listings, setListings] = useState([]);
@@ -19,12 +17,43 @@ export default function AdminListings() {
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Re-run AI callable
+  //
+  // 🔥 SECURE BACKEND-POWERED ACTIONS
+  //
+  const approve = async (id) => {
+    try {
+      const call = httpsCallable(functions, "approveListing");
+      await call({ listingId: id });
+    } catch (err) {
+      console.error(err);
+      alert("Approve failed");
+    }
+  };
+
+  const reject = async (id) => {
+    try {
+      const call = httpsCallable(functions, "rejectListing");
+      await call({ listingId: id, reason: "Rejected by moderator" });
+    } catch (err) {
+      console.error(err);
+      alert("Reject failed");
+    }
+  };
+
+  const flagFraud = async (id) => {
+    try {
+      const call = httpsCallable(functions, "markFraud");
+      await call({ listingId: id });
+    } catch (err) {
+      console.error(err);
+      alert("Fraud marking failed");
+    }
+  };
+
   const handleRerunAI = async (listingId) => {
     try {
-      const functions = getFunctions();
-      const run = httpsCallable(functions, "reRunAI");
-      await run({ listingId });
+      const call = httpsCallable(functions, "reRunAI");
+      await call({ listingId });
       alert("AI reprocessing started!");
     } catch (err) {
       console.error(err);
@@ -32,15 +61,13 @@ export default function AdminListings() {
     }
   };
 
-  // Load filtered listings
+  //
+  // 🔍 LOAD LISTINGS
+  //
   useEffect(() => {
     setLoading(true);
 
-    let q = query(
-      collection(db, "listings"),
-      orderBy("createdAt", "desc"),
-      limit(200)
-    );
+    let q = query(collection(db, "listings"), orderBy("createdAt", "desc"), limit(200));
 
     if (filter === "pending") {
       q = query(
@@ -76,27 +103,9 @@ export default function AdminListings() {
     return () => unsub();
   }, [filter]);
 
-  const approve = async (id) => {
-    await updateDoc(doc(db, "listings", id), {
-      status: "approved",
-      reviewedAt: new Date(),
-    });
-  };
-
-  const reject = async (id) => {
-    await updateDoc(doc(db, "listings", id), {
-      status: "rejected",
-      reviewedAt: new Date(),
-    });
-  };
-
-  const flagFraud = async (id) => {
-    await updateDoc(doc(db, "listings", id), {
-      status: "fraud",
-      reviewedAt: new Date(),
-    });
-  };
-
+  //
+  // UI
+  //
   return (
     <div className="max-w-7xl mx-auto px-6 py-10">
       <h1 className="text-3xl font-bold mb-6">Listings Moderation</h1>
@@ -172,13 +181,9 @@ export default function AdminListings() {
                   <td className="px-4 py-3">{l.title}</td>
                   <td className="px-4 py-3">{l.address}</td>
                   <td className="px-4 py-3">
-                    {l.price
-                      ? `$${Number(l.price).toLocaleString()}`
-                      : "—"}
+                    {l.price ? `$${Number(l.price).toLocaleString()}` : "—"}
                   </td>
-                  <td className="px-4 py-3">
-                    {l.aiFraud?.score ?? "—"}
-                  </td>
+                  <td className="px-4 py-3">{l.aiFraud?.score ?? "—"}</td>
 
                   <td
                     className="px-4 py-3 flex gap-2"
@@ -226,6 +231,9 @@ export default function AdminListings() {
   );
 }
 
+//
+// SIDEBAR
+//
 function ListingSidebar({ listing, onClose }) {
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex justify-end">
@@ -249,9 +257,7 @@ function ListingSidebar({ listing, onClose }) {
         <p className="text-slate-700">{listing.address}</p>
 
         <p className="text-xl mt-4 font-bold">
-          {listing.price
-            ? `$${Number(listing.price).toLocaleString()}`
-            : "—"}
+          {listing.price ? `$${Number(listing.price).toLocaleString()}` : "—"}
         </p>
 
         <div className="mt-6">
@@ -268,7 +274,7 @@ function ListingSidebar({ listing, onClose }) {
 
         <div className="mt-6">
           <a
-            href={`/listing/${listing.id}`}
+            href={`/listings/${listing.id}`}
             target="_blank"
             className="px-4 py-2 bg-blue-600 text-white rounded"
             rel="noreferrer"

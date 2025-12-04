@@ -1,112 +1,73 @@
+// src/pages/Login.jsx
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
-import { login, signInWithGoogle, signInWithApple } from "../firebase/auth.js";
+import { useNavigate } from "react-router-dom";
+import { loginUser } from "../firebase";
 
 export default function Login() {
-  const [form, setForm] = useState({ email: "", password: "" });
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  const handleChange = (e) => {
-    setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
-  };
-
-  const handleSubmit = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
-    setLoading(true);
-    try {
-      await login(form);
-      window.location.href = "/";
-    } catch (err) {
-      setError(err.message || "Failed to login");
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const handleGoogle = async () => {
     try {
-      await signInWithGoogle();
-      window.location.href = "/";
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const handleApple = async () => {
-    try {
-      await signInWithApple();
-      window.location.href = "/";
+      await loginUser(email, password);
+      navigate("/app");
     } catch (err) {
       setError(err.message);
     }
   };
 
   return (
-    <div className="auth-wrapper fade-in">
-      <img src="/logo.png" alt="HI AWTO logo" />
-
-
-      <h1 className="auth-title">Welcome Back</h1>
-      <p className="auth-subtitle">Log in to continue your journey</p>
-
-      {error && <div className="auth-error">{error}</div>}
-
-      <form onSubmit={handleSubmit} className="auth-card">
-        <input
-          name="email"
-          type="email"
-          placeholder="Email"
-          value={form.email}
-          onChange={handleChange}
-          className="auth-input"
-          required
+    <div className="flex justify-center items-center py-20">
+      <div className="bg-white shadow-lg rounded-xl p-8 max-w-md w-full text-center space-y-6">
+        
+        {/* Logo */}
+        <img
+          src="/logo512.png"
+          className="h-12 mx-auto opacity-90"
+          alt="HI AWTO Logo"
         />
 
-        <input
-          name="password"
-          type="password"
-          placeholder="Password"
-          value={form.password}
-          onChange={handleChange}
-          className="auth-input"
-          required
-        />
+        <h2 className="text-2xl font-semibold">Welcome Back</h2>
+        <p className="text-slate-500 text-sm">Log in to continue your journey</p>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="auth-button"
-        >
-          {loading ? "Logging in…" : "Log In"}
-        </button>
+        {error && <p className="text-red-600 text-sm">{error}</p>}
 
-        <Link to="/forgot" className="text-xs text-center text-blue-600 mt-2">
+        <form onSubmit={handleLogin} className="space-y-4 text-left">
+          <input
+            type="email"
+            placeholder="Email"
+            className="w-full border px-3 py-2 rounded focus:ring focus:ring-blue-200"
+            onChange={(e) => setEmail(e.target.value)}
+          />
+
+          <input
+            type="password"
+            placeholder="Password"
+            className="w-full border px-3 py-2 rounded focus:ring focus:ring-blue-200"
+            onChange={(e) => setPassword(e.target.value)}
+          />
+
+          <button className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 shadow">
+            Log In
+          </button>
+        </form>
+
+        <a href="/forgot" className="text-sm text-blue-600 block">
           Forgot your password?
-        </Link>
-      </form>
+        </a>
 
-      {/* SOCIAL LOGIN */}
-      <div className="auth-card mt-3 space-y-3">
-        <button
-          onClick={handleGoogle}
-          className="auth-social-button bg-white border text-gray-700"
-        >
-          Sign in with Google
-        </button>
-
-        <button
-          onClick={handleApple}
-          className="auth-social-button bg-black text-white"
-        >
-          Sign in with Apple
-        </button>
+        <div className="w-full border-t pt-4 text-sm text-slate-500">
+          Don’t have an account?{" "}
+          <a href="/register" className="text-blue-600">
+            Register
+          </a>
+        </div>
       </div>
-
-      <p className="auth-link">
-        Don’t have an account? <Link to="/register">Register</Link>
-      </p>
     </div>
   );
 }

@@ -1,7 +1,6 @@
 // src/pages/SearchListings.jsx
 import React, { useEffect, useState } from "react";
-import { searchListingsAI } from "../firebase/searchAI";
-import { getAllListings } from "../firebase/listings";
+import { getListings, searchListings } from "../firebase";
 import { Link } from "react-router-dom";
 
 export default function SearchListings() {
@@ -9,14 +8,16 @@ export default function SearchListings() {
   const [listings, setListings] = useState([]);
   const [results, setResults] = useState([]);
 
+  // Load all listings on mount
   useEffect(() => {
     (async () => {
-      const all = await getAllListings();
+      const all = await getListings();
       setListings(all);
       setResults(all);
     })();
   }, []);
 
+  // When query changes, run search or reset
   useEffect(() => {
     if (!query.trim()) {
       setResults(listings);
@@ -24,21 +25,24 @@ export default function SearchListings() {
     }
 
     const run = async () => {
-      const r = await searchListingsAI(query);
-      setResults(r);
+      try {
+        const r = await searchListings(query.toLowerCase());
+        setResults(r);
+      } catch (err) {
+        console.error("Search error:", err);
+      }
     };
+
     run();
   }, [query, listings]);
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-10">
-      <h1 className="text-3xl font-bold text-slate-800 mb-6">
-        Search Homes
-      </h1>
+      <h1 className="text-3xl font-bold text-slate-800 mb-6">Search Homes</h1>
 
       <input
         type="text"
-        placeholder="Search anything… modern kitchen, pool, garage, white exterior…"
+        placeholder="Search by address, city, keyword, or feature…"
         className="w-full border rounded-lg px-4 py-2 mb-6 text-sm"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
@@ -48,7 +52,7 @@ export default function SearchListings() {
         {results.map((l) => (
           <Link
             key={l.id}
-            to={`/listing/${l.id}`}
+            to={`/listings/${l.id}`}
             className="bg-white p-4 rounded-xl shadow hover:shadow-lg transition"
           >
             {l.imageUrls?.[0] && (

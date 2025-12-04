@@ -1,150 +1,84 @@
 // src/pages/Register.jsx
 import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { registerUser, loginWithGoogle, loginWithApple } from "../firebase/auth.js";
+import { useNavigate } from "react-router-dom";
+import { registerUser, saveDocument } from "../firebase";
 
 export default function Register() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({
-    email: "",
-    password: "",
-    displayName: "",
-  });
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [socialLoading, setSocialLoading] = useState(false);
 
-  const handleChange = (e) => {
-    setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
-  };
-
-  const handleSubmit = async (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
     setError("");
-    setLoading(true);
-    try {
-      await registerUser(form);
-      navigate("/");
-    } catch (err) {
-      setError(err.message || "Failed to register");
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const handleGoogle = async () => {
-    setError("");
-    setSocialLoading(true);
     try {
-      await loginWithGoogle();
-      navigate("/");
-    } catch (err) {
-      console.error(err);
-      setError(err.message || "Google sign-in failed.");
-    } finally {
-      setSocialLoading(false);
-    }
-  };
+      const { user } = await registerUser(email, password);
 
-  const handleApple = async () => {
-    setError("");
-    setSocialLoading(true);
-    try {
-      await loginWithApple();
-      navigate("/");
+      // Save role
+      await saveDocument(`roles/${user.uid}`, { role: "buyer" });
+
+      // Save display name
+      await user.updateProfile({ displayName: fullName });
+
+      navigate("/app");
     } catch (err) {
-      console.error(err);
-      setError(
-        err.message ||
-          "Apple sign-in failed. Make sure Apple provider is configured."
-      );
-    } finally {
-      setSocialLoading(false);
+      setError(err.message);
     }
   };
 
   return (
-    <div className="auth-wrapper fade-in">
-      <img src="/logo.png" alt="HI AWTO" className="auth-logo" />
-
-      <h1 className="auth-title">Create Account</h1>
-      <p className="auth-subtitle">Join the new way to own</p>
-
-      {error && <div className="auth-error">{error}</div>}
-
-      <form onSubmit={handleSubmit} className="auth-card">
-        <input
-          name="displayName"
-          type="text"
-          placeholder="Full Name"
-          value={form.displayName}
-          onChange={handleChange}
-          className="auth-input"
-          required
+    <div className="flex justify-center items-center py-20">
+      <div className="bg-white shadow-lg rounded-xl p-8 max-w-md w-full text-center space-y-6">
+        
+        {/* Logo */}
+        <img
+          src="/logo512.png"
+          className="h-12 mx-auto opacity-90"
+          alt="HI AWTO Logo"
         />
 
-        <input
-          name="email"
-          type="email"
-          placeholder="Email"
-          value={form.email}
-          onChange={handleChange}
-          className="auth-input"
-          required
-        />
+        <h2 className="text-2xl font-semibold">Create Account</h2>
+        <p className="text-slate-500 text-sm">Join the new way to own</p>
 
-        <input
-          name="password"
-          type="password"
-          placeholder="Password"
-          value={form.password}
-          onChange={handleChange}
-          className="auth-input"
-          required
-        />
+        {error && <p className="text-red-600 text-sm">{error}</p>}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="auth-button"
-        >
-          {loading ? "Creating account..." : "Register"}
-        </button>
+        <form onSubmit={handleRegister} className="space-y-4 text-left">
+          <input
+            type="text"
+            placeholder="Full Name"
+            className="w-full border px-3 py-2 rounded focus:ring focus:ring-blue-200"
+            onChange={(e) => setFullName(e.target.value)}
+          />
 
-        {/* Divider */}
-        <div className="flex items-center gap-2 my-3">
-          <div className="flex-1 h-px bg-slate-200" />
-          <span className="text-[11px] text-slate-400 uppercase tracking-wide">
-            or continue with
-          </span>
-          <div className="flex-1 h-px bg-slate-200" />
-        </div>
+          <input
+            type="email"
+            placeholder="Email"
+            className="w-full border px-3 py-2 rounded focus:ring focus:ring-blue-200"
+            onChange={(e) => setEmail(e.target.value)}
+          />
 
-        {/* Social buttons */}
-        <div className="flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={handleGoogle}
-            disabled={socialLoading}
-            className="w-full border border-slate-200 rounded-lg py-2 text-sm font-medium flex items-center justify-center gap-2 hover:bg-slate-50"
-          >
-            <span>Continue with Google</span>
+          <input
+            type="password"
+            placeholder="Password"
+            className="w-full border px-3 py-2 rounded focus:ring focus:ring-blue-200"
+            onChange={(e) => setPassword(e.target.value)}
+          />
+
+          <button className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 shadow">
+            Register
           </button>
+        </form>
 
-          <button
-            type="button"
-            onClick={handleApple}
-            disabled={socialLoading}
-            className="w-full border border-slate-900 rounded-lg py-2 text-sm font-medium flex items-center justify-center gap-2 bg-black text-white hover:bg-slate-900"
-          >
-            <span>Continue with Apple</span>
-          </button>
+        <div className="w-full border-t pt-4 text-sm text-slate-500">
+          Already have an account?{" "}
+          <a href="/login" className="text-blue-600">
+            Login
+          </a>
         </div>
-      </form>
-
-      <p className="auth-link">
-        Already have an account? <Link to="/login">Login</Link>
-      </p>
+      </div>
     </div>
   );
 }

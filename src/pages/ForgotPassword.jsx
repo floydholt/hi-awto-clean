@@ -1,56 +1,64 @@
+// src/pages/ForgotPassword.jsx
 import React, { useState } from "react";
-import { resetPassword } from "../firebase/auth.js";
-import { Link } from "react-router-dom";
+import { resetPassword } from "../firebase";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
-  const [sent, setSent] = useState(false);
-  const [error, setError] = useState("");
+  const [msg, setMsg] = useState("");
+  const [err, setErr] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
+    setErr("");
+    setMsg("");
 
     try {
       await resetPassword(email);
-      setSent(true);
-    } catch (err) {
-      setError(err.message || "Failed to send reset email");
+      setMsg("Password reset email sent!");
+    } catch (error) {
+      setErr(error.message);
     }
   };
 
   return (
-    <div className="auth-wrapper fade-in">
-      <img src="/logo.png" className="auth-logo" alt="HI AWTO" />
+    <div className="flex justify-center items-center py-20">
+      <div className="bg-white shadow-lg rounded-xl p-8 max-w-md w-full text-center space-y-6">
 
-      <h1 className="auth-title">Reset Password</h1>
-      <p className="auth-subtitle">We'll send you a link to reset it.</p>
-
-      {error && <div className="auth-error">{error}</div>}
-      {sent && (
-        <div className="auth-success">
-          A reset link has been sent to your email.
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="auth-card">
-        <input
-          type="email"
-          placeholder="Email"
-          className="auth-input"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
+        {/* Logo */}
+        <img
+          src="/logo512.png"
+          className="h-12 mx-auto opacity-90"
+          alt="HI AWTO Logo"
         />
 
-        <button type="submit" className="auth-button">
-          Send Reset Link
-        </button>
-      </form>
+        <h2 className="text-2xl font-semibold">Reset Password</h2>
+        <p className="text-slate-500 text-sm">
+          Enter your email and we’ll send you reset instructions.
+        </p>
 
-      <p className="auth-link">
-        <Link to="/login">← Back to Login</Link>
-      </p>
+        {err && <p className="text-red-600 text-sm">{err}</p>}
+        {msg && <p className="text-green-600 text-sm">{msg}</p>}
+
+        <form onSubmit={handleSubmit} className="space-y-4 text-left">
+          <input
+            type="email"
+            placeholder="Email"
+            className="w-full border px-3 py-2 rounded focus:ring focus:ring-blue-200"
+            onChange={(e) => setEmail(e.target.value)}
+          />
+
+          <button className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 shadow">
+            Send Reset Email
+          </button>
+        </form>
+
+        <div className="w-full border-t pt-4 text-sm text-slate-500">
+          Remember your password?{" "}
+          <a href="/login" className="text-blue-600">
+            Log In
+          </a>
+        </div>
+      </div>
     </div>
   );
 }

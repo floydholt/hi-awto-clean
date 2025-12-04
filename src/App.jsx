@@ -4,9 +4,17 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 
+
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import SearchListings from "./pages/SearchListings";
+import HowItWorks from "./pages/HowItWorks";
+import PublicHome from "./pages/PublicHome";
+
+import ForgotPassword from "./pages/ForgotPassword";
+
+
 import ListingDetails from "./pages/ListingDetails";
 import CreateListing from "./pages/CreateListing";
 import EditListing from "./pages/EditListing";
@@ -39,6 +47,14 @@ function App() {
           <Route path="/listing/:id" element={<ListingDetails />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/search" element={<SearchListings />} />
+          <Route path="/how-it-works" element={<HowItWorks />} />
+          <Route path="/" element={<PublicHome />} />
+          <Route path="/forgot" element={<ForgotPassword />} />
+
+
+
+
 
           {/* USER-PROTECTED ROUTES */}
           <Route
