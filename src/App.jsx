@@ -4,34 +4,32 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 
-
+// PUBLIC PAGES
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
-import SearchListings from "./pages/SearchListings";
 import HowItWorks from "./pages/HowItWorks";
-import PublicHome from "./pages/PublicHome";
-
+import SearchListings from "./pages/SearchListings";
 import ForgotPassword from "./pages/ForgotPassword";
-
-
 import ListingDetails from "./pages/ListingDetails";
-import CreateListing from "./pages/CreateListing";
-import EditListing from "./pages/EditListing";
-import MyListings from "./pages/MyListings";
-import Profile from "./pages/Profile";
 
-import MyMessages from "./pages/MyMessages";
-import MessagingCenterAdmin from "./pages/MessagingCenterAdmin";
-import ViewThread from "./pages/ViewThread";
+// SELLER
+import SellerDashboard from "./pages/seller/SellerDashboard";
+import SellerListings from "./pages/seller/SellerListings";
+import SellerBrochures from "./pages/seller/SellerBrochures";
 
-import AdminDashboard from "./pages/AdminDashboard";
-import AdminListings from "./pages/AdminListings";
-import AdminUsers from "./pages/AdminUsers";
-import AdminFraud from "./pages/AdminFraud";
-import AdminLeads from "./pages/AdminLeads";
-import AdminHealth from "./pages/AdminHealth";
+// AGENT
+import AgentDashboard from "./pages/agent/AgentDashboard";
+import AgentLeads from "./pages/agent/AgentLeads";
+import AgentModeration from "./pages/agent/AgentModeration";
 
+// ADMIN
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminListings from "./pages/admin/AdminListings";
+import AdminAnalytics from "./pages/admin/AdminAnalytics";
+import AdminLogs from "./pages/admin/AdminLogs";
+
+// ROUTE GUARDS
 import ProtectedRoute from "./components/ProtectedRoute";
 import RequireAdmin from "./components/RequireAdmin";
 
@@ -44,83 +42,74 @@ function App() {
         <Routes>
           {/* PUBLIC ROUTES */}
           <Route path="/" element={<Home />} />
+          <Route path="/search" element={<SearchListings />} />
           <Route path="/listing/:id" element={<ListingDetails />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/search" element={<SearchListings />} />
-          <Route path="/how-it-works" element={<HowItWorks />} />
-          <Route path="/" element={<PublicHome />} />
           <Route path="/forgot" element={<ForgotPassword />} />
+          <Route path="/how-it-works" element={<HowItWorks />} />
 
-
-
-
-
-          {/* USER-PROTECTED ROUTES */}
+          {/* SELLER ROUTES */}
           <Route
-            path="/create-listing"
+            path="/seller/dashboard"
             element={
               <ProtectedRoute>
-                <CreateListing />
+                <SellerDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/seller/listings"
+            element={
+              <ProtectedRoute>
+                <SellerListings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/seller/brochures"
+            element={
+              <ProtectedRoute>
+                <SellerBrochures />
               </ProtectedRoute>
             }
           />
 
+          {/* AGENT ROUTES */}
           <Route
-            path="/edit-listing/:id"
+            path="/agent/dashboard"
             element={
               <ProtectedRoute>
-                <EditListing />
+                <AgentDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/agent/leads"
+            element={
+              <ProtectedRoute>
+                <AgentLeads />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/agent/moderation"
+            element={
+              <ProtectedRoute>
+                <AgentModeration />
               </ProtectedRoute>
             }
           />
 
+          {/* ADMIN ROUTES */}
           <Route
-            path="/my-listings"
-            element={
-              <ProtectedRoute>
-                <MyListings />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/profile"
-            element={
-              <ProtectedRoute>
-                <Profile />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/messages"
-            element={
-              <ProtectedRoute>
-                <MyMessages />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/messages/thread/:id"
-            element={
-              <ProtectedRoute>
-                <ViewThread />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* ADMIN-ONLY ROUTES */}
-          <Route
-            path="/admin"
+            path="/admin/dashboard"
             element={
               <RequireAdmin>
                 <AdminDashboard />
               </RequireAdmin>
             }
           />
-
           <Route
             path="/admin/listings"
             element={
@@ -129,48 +118,19 @@ function App() {
               </RequireAdmin>
             }
           />
-
           <Route
-            path="/admin/users"
+            path="/admin/analytics"
             element={
               <RequireAdmin>
-                <AdminUsers />
+                <AdminAnalytics />
               </RequireAdmin>
             }
           />
-
           <Route
-            path="/admin/fraud"
+            path="/admin/logs"
             element={
               <RequireAdmin>
-                <AdminFraud />
-              </RequireAdmin>
-            }
-          />
-
-          <Route
-            path="/admin/leads"
-            element={
-              <RequireAdmin>
-                <AdminLeads />
-              </RequireAdmin>
-            }
-          />
-
-          <Route
-            path="/admin/health"
-            element={
-              <RequireAdmin>
-                <AdminHealth />
-              </RequireAdmin>
-            }
-          />
-
-          <Route
-            path="/admin/messages"
-            element={
-              <RequireAdmin>
-                <MessagingCenterAdmin />
+                <AdminLogs />
               </RequireAdmin>
             }
           />

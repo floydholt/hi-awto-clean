@@ -10,7 +10,6 @@ export default function AdminListingDetail() {
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Backend callable functions
   const approve = async () => {
     try {
       await httpsCallable(functions, "approveListing")({ listingId: id });
@@ -81,15 +80,12 @@ export default function AdminListingDetail() {
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-10">
-
-      {/* Breadcrumb */}
       <Link to="/admin/listings" className="text-blue-600 text-sm">
         ← Back to Listings
       </Link>
 
       <h1 className="text-3xl font-bold mt-4 mb-6">Admin Review: {listing.title}</h1>
 
-      {/* IMAGE */}
       {listing.imageUrls?.length > 0 ? (
         <img
           src={listing.imageUrls[0]}
@@ -100,7 +96,6 @@ export default function AdminListingDetail() {
         <div className="w-full h-80 bg-slate-200 rounded-lg mb-8"></div>
       )}
 
-      {/* BASIC INFO */}
       <h2 className="text-xl font-semibold">{listing.title}</h2>
       <p className="text-slate-700">{listing.address}</p>
 
@@ -108,13 +103,11 @@ export default function AdminListingDetail() {
         {listing.price ? `$${Number(listing.price).toLocaleString()}` : "Price not listed"}
       </p>
 
-      {/* AI FRAUD */}
       <div className="mt-8 bg-yellow-50 p-4 rounded border border-yellow-200">
         <h3 className="font-semibold text-yellow-800 mb-1">AI Fraud Score</h3>
         <p className="text-yellow-800 text-lg">{listing.aiFraud?.score ?? "—"}</p>
       </div>
 
-      {/* AI DESCRIPTION */}
       {listing.aiFullDescription && (
         <div className="mt-8 bg-slate-50 p-5 rounded border">
           <h3 className="text-xl font-semibold mb-2">AI Generated Description</h3>
@@ -124,9 +117,7 @@ export default function AdminListingDetail() {
         </div>
       )}
 
-      {/* ADMIN ACTION BUTTONS */}
       <div className="flex gap-4 mt-10">
-
         <button
           onClick={approve}
           className="px-5 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
@@ -154,10 +145,8 @@ export default function AdminListingDetail() {
         >
           Re-run AI
         </button>
-
       </div>
 
-      {/* PUBLIC PAGE LINK */}
       <div className="mt-8">
         <a
           href={`/listings/${id}`}
@@ -168,7 +157,6 @@ export default function AdminListingDetail() {
           View public page →
         </a>
       </div>
-
     </div>
   );
 }
