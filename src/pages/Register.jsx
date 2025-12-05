@@ -1,84 +1,82 @@
-// src/pages/Register.jsx
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { registerUser, saveDocument } from "../firebase";
+import { useNavigate, Link } from "react-router-dom";
+import { createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+import { auth } from "../firebase/firebase";
+import logo from "../assets/logo.png";
 
 export default function Register() {
-  const navigate = useNavigate();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const navigate = useNavigate();
 
   const handleRegister = async (e) => {
     e.preventDefault();
-    setError("");
-
     try {
-      const { user } = await registerUser(email, password);
-
-      // Save role
-      await saveDocument(`roles/${user.uid}`, { role: "buyer" });
-
-      // Save display name
-      await user.updateProfile({ displayName: fullName });
-
-      navigate("/app");
+      await createUserWithEmailAndPassword(auth, email, password);
+      navigate("/");
     } catch (err) {
-      setError(err.message);
+      setError("Registration failed. Please try again.");
+    }
+  };
+
+  const handleGoogleRegister = async () => {
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+      navigate("/");
+    } catch (err) {
+      setError("Google sign-in failed.");
     }
   };
 
   return (
-    <div className="flex justify-center items-center py-20">
-      <div className="bg-white shadow-lg rounded-xl p-8 max-w-md w-full text-center space-y-6">
-        
-        {/* Logo */}
-        <img
-          src="/logo512.png"
-          className="h-12 mx-auto opacity-90"
-          alt="HI AWTO Logo"
+    <div className="max-w-md mx-auto mt-12 p-6 border rounded">
+      <img src={logo} alt="HI-AWTO Logo" className="h-12 mx-auto mb-6" />
+      <h1 className="text-2xl font-bold mb-2 text-center">Create Account</h1>
+      <p className="text-center text-slate-600 mb-4">Join the new way to own</p>
+      {error && <p className="text-red-600 mb-2">{error}</p>}
+      <form onSubmit={handleRegister} className="space-y-4">
+        <input
+          type="text"
+          placeholder="Full Name"
+          className="w-full border p-2"
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
         />
+        <input
+          type="email"
+          placeholder="Email"
+          className="w-full border p-2"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          className="w-full border p-2"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <button type="submit" className="w-full bg-sky-600 text-white py-2 rounded">
+          Register
+        </button>
+      </form>
 
-        <h2 className="text-2xl font-semibold">Create Account</h2>
-        <p className="text-slate-500 text-sm">Join the new way to own</p>
-
-        {error && <p className="text-red-600 text-sm">{error}</p>}
-
-        <form onSubmit={handleRegister} className="space-y-4 text-left">
-          <input
-            type="text"
-            placeholder="Full Name"
-            className="w-full border px-3 py-2 rounded focus:ring focus:ring-blue-200"
-            onChange={(e) => setFullName(e.target.value)}
-          />
-
-          <input
-            type="email"
-            placeholder="Email"
-            className="w-full border px-3 py-2 rounded focus:ring focus:ring-blue-200"
-            onChange={(e) => setEmail(e.target.value)}
-          />
-
-          <input
-            type="password"
-            placeholder="Password"
-            className="w-full border px-3 py-2 rounded focus:ring focus:ring-blue-200"
-            onChange={(e) => setPassword(e.target.value)}
-          />
-
-          <button className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 shadow">
-            Register
-          </button>
-        </form>
-
-        <div className="w-full border-t pt-4 text-sm text-slate-500">
-          Already have an account?{" "}
-          <a href="/login" className="text-blue-600">
-            Login
-          </a>
-        </div>
+      <div className="mt-6 text-center text-slate-500">OR CONTINUE WITH</div>
+      <div className="flex justify-center gap-4 mt-4">
+        <button onClick={handleGoogleRegister} className="bg-white border px-4 py-2 rounded shadow">
+          Continue with Google
+        </button>
+        <button className="bg-white border px-4 py-2 rounded shadow" disabled>
+          Continue with Apple
+        </button>
       </div>
+
+      <p className="mt-6 text-center text-sm text-slate-600">
+        Already have an account? <Link to="/login" className="text-sky-600">Login</Link>
+      </p>
     </div>
   );
 }
