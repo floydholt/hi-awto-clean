@@ -1,28 +1,67 @@
+// storage.rules
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Public read-only files
-    match /public/{allPaths=**} {
-      allow read;
+    /* -----------------------------
+       Helper Functions
+    ----------------------------- */
+    function isSignedIn() {
+      return request.auth != null;
     }
 
-    // User profile images
-    match /users/{uid}/{allPaths=**} {
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.role == "admin";
+    }
+
+    function isAgent() {
+      return isSignedIn() && request.auth.token.role == "agent";
+    }
+
+    function isSeller() {
+      return isSignedIn() && request.auth.token.role == "seller";
+    }
+
+    /* -----------------------------
+       Brochures
+       Stored under: brochures/{userId}/{fileName}
+    ----------------------------- */
+    match /brochures/{userId}/{fileName} {
+      // Sellers can upload/manage their own brochures
+      allow write: if isSeller() && request.auth.uid == userId;
+
+      // Sellers can read their own brochures
+      allow read: if isSeller() && request.auth.uid == userId;
+
+      // Agents can read all brochures (for moderation)
+      allow read: if isAgent();
+
+      // Admins full control
+      allow read, write: if isAdmin();
+    }
+
+    /* -----------------------------
+       Listing Images
+       Stored under: listings/{listingId}/{fileName}
+    ----------------------------- */
+    match /listings/{listingId}/{fileName} {
+      // Public read for published listings (optional: restrict if you want only signed-in users)
       allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == uid;
+
+      // Sellers can upload images for their own listings
+      // Requires metadata.ownerId to be set at upload
+      allow write: if isSeller() &&
+                   request.auth.uid == request.resource.metadata.ownerId;
+
+      // Admins full control
+      allow read, write: if isAdmin();
     }
 
-    // Listing images
-    match /listings/{listingId}/{allPaths=**} {
-      allow read: if true;
-      allow write: if request.auth != null;
-    }
-
-    // Block everything else
+    /* -----------------------------
+       FALLBACK
+    ----------------------------- */
     match /{allPaths=**} {
-      allow read: if false;
-      allow write: if false;
+      allow read, write: if false;
     }
   }
 }

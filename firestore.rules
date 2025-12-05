@@ -1,5 +1,5 @@
+// firestore.rules
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -14,11 +14,19 @@ service cloud.firestore {
       return isSignedIn() && request.auth.token.role == "admin";
     }
 
+    function isAgent() {
+      return isSignedIn() && request.auth.token.role == "agent";
+    }
+
+    function isSeller() {
+      return isSignedIn() && request.auth.token.role == "seller";
+    }
+
     function isUser(uid) {
       return isSignedIn() && request.auth.uid == uid;
     }
 
-    // Client must NOT write AI/server-only fields
+    // Prevent client from touching server-only fields
     function clientTouchesAIFields() {
       return
         "aiPricing" in request.resource.data ||
@@ -42,8 +50,8 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if isSignedIn();
       allow create: if isUser(uid);
-      allow update: if isUser(uid)
-        && request.resource.data.role == resource.data.role;
+      // Users cannot escalate their own role
+      allow update: if isUser(uid) && request.resource.data.role == resource.data.role;
       allow delete: if false; // no self-delete
     }
 
@@ -51,58 +59,78 @@ service cloud.firestore {
        Listings
     ----------------------------- */
     match /listings/{listingId} {
-      allow read: if true;
+      // Buyers can read published listings
+      allow read: if resource.data.status == "published" || isAgent() || isAdmin();
 
-      allow create: if isSignedIn()
-        && request.resource.data.ownerId == request.auth.uid
-        && !clientTouchesAIFields();
+      // Sellers can create their own listings
+      allow create: if isSeller() &&
+                    request.resource.data.ownerId == request.auth.uid &&
+                    !clientTouchesAIFields();
 
-      allow update: if !clientTouchesAIFields() && (
-        isAdmin() ||
-        (isSignedIn() && listingOwnerId() == request.auth.uid)
-      );
+      // Sellers can update their own listings
+      allow update: if isSeller() &&
+                    listingOwnerId() == request.auth.uid &&
+                    !clientTouchesAIFields();
 
-      allow delete: if isAdmin();
+      // Agents can moderate status only
+      allow update: if isAgent() &&
+                    request.resource.data.keys().hasOnly(["status"]);
+
+      // Admins full control
+      allow read, write: if isAdmin();
+    }
+
+    /* -----------------------------
+       Brochures
+    ----------------------------- */
+    match /brochures/{brochureId} {
+      allow read: if isSignedIn(); // or make public if desired
+      allow create, update: if isSeller() &&
+                            request.auth.uid == request.resource.data.ownerId;
+      allow read, write: if isAdmin();
     }
 
     /* -----------------------------
        Leads
     ----------------------------- */
     match /leads/{leadId} {
-      allow create: if isSignedIn()
-        && request.resource.data.buyerId == request.auth.uid;
+      // Buyers can create leads for themselves
+      allow create: if isSignedIn() &&
+                    request.resource.data.buyerId == request.auth.uid;
 
-      allow read: if isAdmin()
-        || (isSignedIn()
-          && (request.auth.uid == resource.data.listingOwnerId
-              || request.auth.uid == resource.data.buyerId));
+      // Sellers can read leads tied to their listings
+      allow read: if isSignedIn() &&
+                  request.auth.uid == resource.data.listingOwnerId;
 
-      allow update, delete: if isAdmin();
+      // Agents can read/write leads
+      allow read, write: if isAgent();
+
+      // Admins full control
+      allow read, write: if isAdmin();
     }
 
     /* -----------------------------
-       Threads + Messages (Messaging)
+       Threads + Messages
     ----------------------------- */
     match /threads/{threadId} {
+      allow read: if isAdmin() ||
+                  (isSignedIn() && request.auth.uid in resource.data.participantIds);
 
-      allow read: if isAdmin()
-        || (isSignedIn() && request.auth.uid in resource.data.participantIds);
+      allow create: if isSignedIn() &&
+                    request.auth.uid in request.resource.data.participantIds;
 
-      allow create: if isSignedIn()
-        && request.auth.uid in request.resource.data.participantIds;
-
-      allow update: if isAdmin()
-        || (isSignedIn() && request.auth.uid in resource.data.participantIds);
+      allow update: if isAdmin() ||
+                    (isSignedIn() && request.auth.uid in resource.data.participantIds);
 
       allow delete: if isAdmin();
 
       match /messages/{messageId} {
-        allow read: if isAdmin()
-          || (isSignedIn() && request.auth.uid in resource.data.participantIds);
+        allow read: if isAdmin() ||
+                    (isSignedIn() && request.auth.uid in resource.data.participantIds);
 
-        allow create: if isSignedIn()
-          && request.auth.uid in get(/databases/$(database)/documents/threads/$(threadId)).data.participantIds
-          && request.resource.data.senderId == request.auth.uid;
+        allow create: if isSignedIn() &&
+                      request.auth.uid in get(/databases/$(database)/documents/threads/$(threadId)).data.participantIds &&
+                      request.resource.data.senderId == request.auth.uid;
 
         allow update, delete: if isAdmin();
       }
