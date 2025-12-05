@@ -56,3 +56,6 @@ coverage/
 # Optional: ignore screenshots or test artifacts
 screenshots/
 test-output/
+
+# Firebase service account key
+serviceAccountKey.json

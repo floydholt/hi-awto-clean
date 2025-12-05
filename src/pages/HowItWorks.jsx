@@ -1,77 +1,51 @@
-// src/pages/HowItWorks.jsx
 import React from "react";
 
 export default function HowItWorks() {
   return (
-    <div className="bg-white text-slate-800">
-      {/* HERO SECTION */}
-      <section className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-20 text-center px-6">
-        <h1 className="text-5xl font-bold mb-4">Lease-to-Own Made Simple</h1>
-        <p className="text-lg max-w-2xl mx-auto">
-          HI-AWTO helps renters become homeowners with flexible terms and transparent pricing.
+    <div className="max-w-4xl mx-auto px-6 py-12">
+      <h1 className="text-3xl font-bold text-slate-900 mb-6">How HI-AWTO Works</h1>
+
+      <p className="text-slate-600 mb-8">
+        HI-AWTO (Here Is Another Way To Own) is a modular, real-time platform that connects buyers, sellers, and agents through premium listings, transparent workflows, and data-driven insights.
+      </p>
+
+      <div className="space-y-8">
+        {/* Buyer Section */}
+        <section>
+          <h2 className="text-xl font-semibold text-sky-700 mb-2">🏠 For Buyers</h2>
+          <ul className="list-disc list-inside text-slate-700">
+            <li>Browse verified listings with real-time updates</li>
+            <li>Request brochures and schedule viewings instantly</li>
+            <li>Track your interest history and agent responses</li>
+          </ul>
+        </section>
+
+        {/* Seller Section */}
+        <section>
+          <h2 className="text-xl font-semibold text-sky-700 mb-2">📤 For Sellers</h2>
+          <ul className="list-disc list-inside text-slate-700">
+            <li>Create listings and upload brochures with ease</li>
+            <li>Monitor buyer engagement and lead quality</li>
+            <li>Collaborate with agents to optimize visibility</li>
+          </ul>
+        </section>
+
+        {/* Agent Section */}
+        <section>
+          <h2 className="text-xl font-semibold text-sky-700 mb-2">🧭 For Agents</h2>
+          <ul className="list-disc list-inside text-slate-700">
+            <li>Moderate listings and ensure platform standards</li>
+            <li>Track leads and respond to buyer inquiries</li>
+            <li>Access analytics to improve conversion rates</li>
+          </ul>
+        </section>
+      </div>
+
+      <div className="mt-12 text-center">
+        <p className="text-slate-600">
+          HI-AWTO is redefining real estate ownership — one modular step at a time.
         </p>
-        <a
-          href="/search"
-          className="mt-6 inline-block px-6 py-3 bg-white text-blue-600 font-semibold rounded-lg shadow hover:bg-slate-100"
-        >
-          Browse Homes →
-        </a>
-      </section>
-
-      {/* 3-STEP MODEL */}
-      <section className="max-w-6xl mx-auto px-6 py-16">
-        <h2 className="text-3xl font-bold text-center mb-12">How It Works</h2>
-        <div className="grid md:grid-cols-3 gap-8">
-          {[
-            {
-              icon: "🏠",
-              title: "Find Your Home",
-              desc: "Browse available properties and choose the home that fits your needs.",
-            },
-            {
-              icon: "📈",
-              title: "Lease & Build Equity",
-              desc: "Move in, pay rent monthly, and build equity credits toward ownership.",
-            },
-            {
-              icon: "🔑",
-              title: "Purchase When Ready",
-              desc: "Apply your credits toward your down payment and buy the home.",
-            },
-          ].map((step, i) => (
-            <div
-              key={i}
-              className="bg-white p-6 shadow-lg rounded-xl text-center transition hover:scale-105 hover:shadow-xl"
-            >
-              <div className="text-4xl mb-3">{step.icon}</div>
-              <h3 className="text-xl font-bold mb-2">{step.title}</h3>
-              <p className="text-slate-600 text-sm">{step.desc}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* BENEFITS */}
-      <section className="max-w-4xl mx-auto px-6 py-12">
-        <h2 className="text-2xl font-bold mb-4">Why Lease-to-Own?</h2>
-        <ul className="list-disc ml-6 text-slate-700 space-y-2">
-          <li>Lower barrier to homeownership</li>
-          <li>Flexible lease terms</li>
-          <li>Option to buy — no obligation</li>
-          <li>Equity credits applied toward purchase</li>
-          <li>Ideal for renters preparing for mortgage approval</li>
-        </ul>
-      </section>
-
-      {/* CTA */}
-      <section className="text-center py-12">
-        <a
-          href="/search"
-          className="px-6 py-3 bg-blue-600 text-white text-lg rounded-lg hover:bg-blue-700 shadow"
-        >
-          Browse Available Homes →
-        </a>
-      </section>
+      </div>
     </div>
   );
 }
